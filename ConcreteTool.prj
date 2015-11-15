@@ -1,0 +1,120 @@
+<deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
+  <configuration build-checksum="238162279" file="C:\Users\Korisnik\Dropbox\1 Diplomski\Matlab\oop\ConcreteTool.prj" location="C:\Users\Korisnik\Dropbox\1 Diplomski\Matlab\oop" name="ConcreteTool" preferred-package-location="C:\Users\Korisnik\Desktop\ConcreteTool\installer" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="MATLAB Compiler for Standalone Applications">
+    <param.appname>ConcreteTool</param.appname>
+    <param.icon />
+    <param.icons />
+    <param.version>1.0</param.version>
+    <param.authnamewatermark />
+    <param.email />
+    <param.company />
+    <param.summary />
+    <param.description />
+    <param.screenshot>${PROJECT_ROOT}\section_template.jpg</param.screenshot>
+    <param.guid />
+    <param.installpath.string>\ConcreteTool\</param.installpath.string>
+    <param.installpath.combo>option.installpath.programfiles</param.installpath.combo>
+    <param.logo />
+    <param.install.notes />
+    <param.intermediate>C:\Users\Korisnik\Desktop\ConcreteTool\test</param.intermediate>
+    <param.files.only>C:\Users\Korisnik\Desktop\ConcreteTool\end</param.files.only>
+    <param.output>C:\Users\Korisnik\Desktop\ConcreteTool\installer</param.output>
+    <param.enable.clean.build>false</param.enable.clean.build>
+    <param.user.defined.mcr.options />
+    <param.embed.ctf>true</param.embed.ctf>
+    <param.server.ctf>C:\Users\Korisnik\Desktop\ConcreteTool\test\.ctf</param.server.ctf>
+    <param.server.readme>C:\Users\Korisnik\Desktop\ConcreteTool\test\readme.txt</param.server.readme>
+    <param.target.type>subtarget.standalone</param.target.type>
+    <param.support.packages />
+    <param.required.mcr.products>
+      <item>35000</item>
+      <item>35001</item>
+    </param.required.mcr.products>
+    <param.web.mcr>false</param.web.mcr>
+    <param.package.mcr>true</param.package.mcr>
+    <param.no.mcr>false</param.no.mcr>
+    <param.web.mcr.name>MyAppInstaller_web</param.web.mcr.name>
+    <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
+    <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
+    <param.windows.command.prompt>true</param.windows.command.prompt>
+    <param.create.log>false</param.create.log>
+    <param.log.file />
+    <unset>
+      <param.icon />
+      <param.icons />
+      <param.version />
+      <param.authnamewatermark />
+      <param.email />
+      <param.company />
+      <param.summary />
+      <param.description />
+      <param.guid />
+      <param.installpath.string />
+      <param.installpath.combo />
+      <param.logo />
+      <param.install.notes />
+      <param.enable.clean.build />
+      <param.user.defined.mcr.options />
+      <param.embed.ctf />
+      <param.server.ctf />
+      <param.server.readme />
+      <param.target.type />
+      <param.support.packages />
+      <param.no.mcr />
+      <param.web.mcr.name />
+      <param.package.mcr.name />
+      <param.no.mcr.name />
+      <param.windows.command.prompt />
+      <param.create.log />
+      <param.log.file />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}\ConcreteTool.m</file>
+    </fileset.main>
+    <fileset.resources>
+      <file>${PROJECT_ROOT}\ConcreteTool.fig</file>
+      <file>${PROJECT_ROOT}\CrossSection.m</file>
+      <file>${PROJECT_ROOT}\Rebar.m</file>
+      <file>${PROJECT_ROOT}\RebarTool.fig</file>
+      <file>${PROJECT_ROOT}\RebarTool.m</file>
+    </fileset.resources>
+    <fileset.package />
+    <build-deliverables>
+      <file location="C:\Users\Korisnik\Desktop\ConcreteTool\test" name="ConcreteTool.exe" optional="false">C:\Users\Korisnik\Desktop\ConcreteTool\test\ConcreteTool.exe</file>
+      <file location="C:\Users\Korisnik\Desktop\ConcreteTool\test" name="readme.txt" optional="true">C:\Users\Korisnik\Desktop\ConcreteTool\test\readme.txt</file>
+      <file location="C:\Users\Korisnik\Desktop\ConcreteTool\test" name="splash.png" optional="false">C:\Users\Korisnik\Desktop\ConcreteTool\test\splash.png</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>C:\Program Files\MATLAB\R2014b</root>
+      <toolboxes>
+        <toolbox name="fixedpoint" />
+        <toolbox name="matlabcoder" />
+      </toolboxes>
+      <toolbox>
+        <fixedpoint>
+          <enabled>true</enabled>
+        </fixedpoint>
+      </toolbox>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>false</unix>
+      <mac>false</mac>
+      <windows>true</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>6.1</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>win64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>
