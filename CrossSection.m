@@ -33,6 +33,7 @@ classdef CrossSection < handle
         fyd;                    % racunski dopusteni napon u celiku 
         minRebarSpacing;        % minimalni svijetli razmak izmedju sipki
         xdRatio;                % odnos x/d = 0.45 za C<=50/60, 0.35 za C>=55/67
+        Nsd = 0;                % normalna sila koja djeluje u presjeku (pritisak je pozitivan)
     end
     %% Dependent
     properties (Dependent)
@@ -223,7 +224,8 @@ classdef CrossSection < handle
             %%% RPR(ds) (rebars per row) Odredjuje maksimalan broj sipki u
             %%% jednom redu i osni razmak izmedju njih u [mm] za zadane precnike ds.
             %%% ds - vektor precnika armature u mm
-            bw = this.dims.bw; % sirina flanse / rebra u zategnutoj zoni [mm]
+            dims = this.dims;
+            bw = dims.bw; % sirina flanse / rebra u zategnutoj zoni [mm]
             dg = this.dg; % najvece zrno agregata
             c_nom = this.c_nom; % ukupan zastitni sloj betona
             stirrup = this.stirrup; % uzengije
@@ -239,15 +241,22 @@ classdef CrossSection < handle
             %%% CALCULATEAS racuna potrebnu kolicinu armature 
             %%% Msd - moment savijanja u presjeku u Nmm
             % ako d nije definisano, usvaja se 0.9h
+            dims = this.dims;
             if nargin <= 2
-                d = 0.9*this.dims.h;
+                d = 0.9*dims.h;
             end
+            % povecanje momenta usljed djelovanja normalne sile
+            Nsd = this.Nsd;
+            Msd = Msd + Nsd*(d-dims.h/2);
+            
             % pretpostavlja se jednostruko armiranje
             As1_pot = 0;
             As2_pot = 0;
             delta = 0.01; % zeljena preciznost (dopustena razlika izmedju Msd i Mrd)
             xmin = 0;
-            xmax = this.xdRatio*(this.dims.h-this.c_nom-this.stirrup-this.ds_max(1)/2); 
+            % gornja granica za x je staticka visina presjeka (od
+            % pritisnute ivice do najudaljenijeg reda armature
+            xmax = this.xdRatio*(dims.h-this.c_nom-this.stirrup-this.ds_max(1)/2); 
             
             % maksimalni moment savijanja sa jednostrukim armiranjem (Mrd
             % za x = xmax)
@@ -256,7 +265,7 @@ classdef CrossSection < handle
             Fc = this.Fc;
             
             % Minimalna i maksimalna kolicina armature:
-            dims = this.dims;
+            
             % minimalna kolicina armature prema EC2:
             As1_min = max([0.26*this.fctm/this.fyk*dims.bw*dims.h...
                 0.0013*dims.bw*dims.h]); % ili d umjesto dims.h?
@@ -273,7 +282,7 @@ classdef CrossSection < handle
             if Mrd < Msd
                 % krak sila
                 z = d-this.xFc;
-                Fs1 = Mrd / z; % [N]
+                Fs1 = Mrd / z - Nsd; % [N]
                 dM = Msd - Mrd;
                 if dM > 0.5*Mrd
                     msgbox('Msd > 1.5 Mrd,max pri jednostrukom armiranju, potrebna je veca visina presjeka.',...
@@ -283,7 +292,7 @@ classdef CrossSection < handle
                 % pretpostavka o polozaju tezista pritisnute armature
                 % manja vrijednost od 0.1h i polozaja tezista jednog reda
                 % armature precnika 36 mm (najveca moguca armatura)
-                d2 = min([0.1*this.dims.h this.c_nom+this.stirrup+36/2]);
+                d2 = min([0.1*dims.h this.c_nom+this.stirrup+36/2]);
                 zd = d - d2;
                 Fs2 = dM / zd; % [N]
                 As1_pot = (Fs1+Fs2) / this.fyd; % mm2
@@ -307,7 +316,7 @@ classdef CrossSection < handle
             end
             % nakon postignute zadovoljavajuce preciznosti, racunamo
             % potrebnu povrsinu armature na osnovu poznate sile u betonu (Fc)
-            As1_pot = this.Fc/this.fyd; % [mm2]
+            As1_pot = (this.Fc-Nsd)/this.fyd; % [mm2]
             if (As1_pot+As2_pot)>As_max
                 disp('As > As_max');
                 msgbox('As,uk > As,max. Potrebno je usvojiti veci presjek.',...
@@ -430,24 +439,28 @@ classdef CrossSection < handle
                 Mrd = 0;
                 return;
             end
+            dims = this.dims;
+            Nsd = this.Nsd;
             delta = 0.01; % zeljena preciznost (dopustena razlika izmedju Msd i Mrd)
             xmin = 0;
             xmax = this.dims.h;
             this.x = (xmax+xmin)/2;
             
-            dF = abs(this.Fs1-this.Fc-this.Fs2);
+            dF = abs(this.Fs1+Nsd-this.Fc-this.Fs2);
             while dF > delta
                 % ako je Fc > Fs1, neutralna osa se mora nalaziti iznad
                 % trenutnog polozaja (dakle x se smanjuje)
-                if (this.Fc+this.Fs2) > this.Fs1
+                if (this.Fc+this.Fs2) > (this.Fs1 + Nsd)
                     xmax = this.x;
                 else % u suprotnom, x se povecava tako sto povecavamo donju granicu (xmin)
                     xmin = this.x;
                 end
                 this.x = (xmin+xmax)/2;
-                dF = abs(this.Fs1-this.Fc-this.Fs2);
+                dF = abs(this.Fs1+Nsd-this.Fc-this.Fs2);
             end
-            Mrd = (this.Fs1*this.xFs1-this.Fc*this.xFc-this.Fs2*this.xFs2); % [Nmm]
+            Mrd = this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-dims.h/2); % [Nmm]
+            %this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-dims.h/2);
+            %(this.Fs1*this.xFs1-this.Fc*this.xFc-this.Fs2*this.xFs2-this.Nsd*dims.h/2); 
         end
         
         function Ac = get.Ac(this)

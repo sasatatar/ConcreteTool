@@ -22,7 +22,7 @@ function varargout = ConcreteTool(varargin)
 
 % Edit the above text to modify the response to help ConcreteTool
 
-% Last Modified by GUIDE v2.5 04-Nov-2015 10:39:04
+% Last Modified by GUIDE v2.5 20-Nov-2015 02:39:13
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -278,17 +278,31 @@ if cs.dims.bw == cs.dims.bf
 end
 cs.plotSection(handles.crossSection_axes);
 
-% ucitava podatke iz polja pod tabom Armatura i pohranjuje ih u crossSection objekat
+% azurira graficke prikaze poprecnog presjeka i armature
 function updateRebarData(hobject, eventdata, handles)
 cs = handles.crossSection;
 cs.plotSection(handles.section_axes);
 cs.drawRebar(handles.section_axes);
-cs.fyk = str2double(handles.fyk_edit.String);
-cs.Es = str2double(handles.Es_edit.String);
 % plotStrain funkciji se prosljedjuje i section_axes referenca da bi
 % izracunala velicine dijagrama (da budu u ravnini)
 cs.plotStrain(handles.strain_axes, handles.section_axes);
 cs.plotCompression(handles.section_axes);
+
+% ucitava podatke iz polja pod tabom Armatura i pohranjuje ih u crossSection objekat
+function updateInput(hobject, ~, handles)
+cs = handles.crossSection;
+cs.fyk = str2double(handles.fyk_edit.String);
+cs.Es = str2double(handles.Es_edit.String);
+cs.Nsd = str2double(handles.Nsd_edit.String)*1000; % [N]
+if hobject == handles.dhRatio_edit
+    dhRatio = str2double(handles.dhRatio_edit.String);
+    handles.d_edit.String = num2str(dhRatio*cs.dims.h, '%.1f');
+elseif hobject == handles.d_edit
+    d = str2double(handles.d_edit.String);
+    handles.dhRatio_edit.String = num2str(d/cs.dims.h, '%.2f');
+end
+
+
 
 
 % --- Executes during object creation, after setting all properties.
@@ -550,9 +564,7 @@ function dhRatio_edit_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of dhRatio_edit as text
 %        str2double(get(hObject,'String')) returns contents of dhRatio_edit as a double
-dhRatio = str2double(handles.dhRatio_edit.String);
-cs = handles.crossSection;
-handles.d_edit.String = num2str(dhRatio*cs.dims.h, '%.1f');
+
 
 % --- Executes during object creation, after setting all properties.
 function dhRatio_edit_CreateFcn(hObject, eventdata, handles)
@@ -692,18 +704,18 @@ updateRebarData(hObject, 0, handles);
 
 
 
-function N_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to N_edit (see GCBO)
+function Nsd_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to Nsd_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of N_edit as text
-%        str2double(get(hObject,'String')) returns contents of N_edit as a double
+% Hints: get(hObject,'String') returns contents of Nsd_edit as text
+%        str2double(get(hObject,'String')) returns contents of Nsd_edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function N_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to N_edit (see GCBO)
+function Nsd_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Nsd_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
