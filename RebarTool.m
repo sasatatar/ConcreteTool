@@ -438,7 +438,11 @@ function RebarTool_figure_WindowButtonMotionFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 ax = handles.section_axes;
-cs = handles.crossSection;
+if isfield(handles, 'crossSection')
+    cs = handles.crossSection;
+else
+    return;
+end
 cp = ax.CurrentPoint;
 tags = findobj(ax, 'Tag', 'rebarTag');
 if ~isempty(tags)
