@@ -56,7 +56,7 @@ function ConcreteTool_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.output = hObject;
 hObject.CloseRequestFcn = @close;
 % podesavanje dimenzija prozora
-hObject.Position(3:4) = [600 550];
+hObject.Position(3:4) = [707 550];
 
 % oznaka za ecu2 unutar axes objekta:
 axis(handles.ecu2Label_axes, 'off');
@@ -243,12 +243,10 @@ end
 function updateData(hobject, eventdata, handles)
 cs = handles.crossSection;
 % azurira karakteristicnu cvrstocu betona
-concreteClass = [20:5:60 70:10:90;... % fck [MPa]
-    3.5*ones(1,7) 3.1 2.9 2.7 2.6 2.6;... % ecu2 [promili]
-    2.2 2.6 2.9 3.2 3.5 3.8 4.1 4.2 4.4 4.6 4.8 5]; % fctm {MPa] - cvrstoca na zatezanje
+concreteClass = [12 16 20:5:60 70:10:90;... % fck [MPa]
+    3.5*ones(1,9) 3.1 2.9 2.7 2.6 2.6;... % ecu2 [promili]
+    1.6 1.9 2.2 2.6 2.9 3.2 3.5 3.8 4.1 4.2 4.4 4.6 4.8 5]; % fctm {MPa] - cvrstoca na zatezanje
 cs.fck = concreteClass(1,handles.concreteClass_popup.Value);
-% azurira dopustenu dilataciju ecu2 u zavisnosti od klase, prema EC2
-cs.ecu2 = -concreteClass(2,handles.concreteClass_popup.Value)/1000;
 % azurira dopustenu cvrstocu na zatezanje
 cs.fctm = concreteClass(3,handles.concreteClass_popup.Value);
 handles.ecu2_edit.String = num2str(concreteClass(2,handles.concreteClass_popup.Value));
@@ -287,6 +285,7 @@ cs.drawRebar(handles.section_axes);
 % izracunala velicine dijagrama (da budu u ravnini)
 cs.plotStrain(handles.strain_axes, handles.section_axes);
 cs.plotCompression(handles.section_axes);
+cs.plotStress(handles.stress_axes, handles.section_axes);
 
 % ucitava podatke iz polja pod tabom Armatura i pohranjuje ih u crossSection objekat
 function updateInput(hobject, ~, handles)
@@ -655,8 +654,7 @@ handles.Mrd_edit.String = num2str(cs.Mrd*10^-6,'%.2f'); % [kNm]
 % plotStrain funkciji se prosljedjuje i section_axes referenca da bi
 % izracunala velicine dijagrama (da budu u ravnini)
 % azuriraj prikaz
-cs.plotStrain(handles.strain_axes, handles.section_axes);
-cs.plotCompression(handles.section_axes);
+updateRebarData(hObject, eventdata, handles);
 
 
 

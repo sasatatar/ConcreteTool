@@ -11,10 +11,10 @@ classdef CrossSection < handle
         %   .h;             % ukupna visina nosaca
         
         x;            % polozaj neutralne ose od vrha presjeka [mm]
-        ecu2=-0.0035;       % dilatacija u betonu
         fck = 30;           % karakt. cvrtstoca betona [MPa] (C30/37)
         fctm = 2.9;         % cvrstoca betona na zatezanje (potrebno kod proracuna As1,min)
-        alpha = 0.85;       % koeficijent ispunjenosti alfa
+        alpha = 0.85;       % koef. koji uzima u obzir dugorocne negativne 
+                            % faktore na cvrstocu betona
         gammac = 1.5;       % koeficijent sigurnosti za beton
         
         % podaci vezano za armaturu
@@ -41,6 +41,8 @@ classdef CrossSection < handle
         % [x11 y11 x12 y12 % x11,y11 koordinate prve konturne tacke
         %  x21 y21 x22 y22...]
         Points;
+        fcd; % design concrete strength fcd = alfacc * fck / gammac
+        ecu2;       % strain in concrete / dilatacija u betonu
     end
     %% Read-only properties - pristupa im se preko get metoda
     properties (SetAccess = 'private')
@@ -54,6 +56,8 @@ classdef CrossSection < handle
         As2;                % ukupna povrsina ugradjene pritisnute arm. [mm2]
         Ac;                 % povrsina betona
         Mrd;                % reaktivni moment savijanja (kNm)
+        ignoreCRebars = 0;  % boolean flag indicating if compressed rebars should 
+                                    % be ignored when calculating Fc
     end%%
     
     %% Metode za armaturu
@@ -160,12 +164,11 @@ classdef CrossSection < handle
             % columnSpacing - horizontalni osni razmak izmedju sipki 
             [rpr, columnSpacing] = this.RPR(ds_max(zone), zone);
             % vertikalne ose
+            x = [0 h];
             if zone == 1
-                x = [0.65*h h];
                 a = 1;
                 b = rpr;
             elseif zone == 2
-                x = [0 0.5*h];
                 % broj dodatnih kolona u flansi
                 fColumns = floor((y0-(c_nom+stirrup+ds_max(zone)/2))/columnSpacing);
                 % lijevo od pocetnog polozaja dodaju se negativne kolone u
@@ -241,6 +244,7 @@ classdef CrossSection < handle
             %%% CALCULATEAS racuna potrebnu kolicinu armature 
             %%% Msd - moment savijanja u presjeku u Nmm
             % ako d nije definisano, usvaja se 0.9h
+            %this.ignoreCRebars = 1;
             dims = this.dims;
             if nargin <= 2
                 d = 0.9*dims.h;
@@ -292,7 +296,7 @@ classdef CrossSection < handle
                 % pretpostavka o polozaju tezista pritisnute armature
                 % manja vrijednost od 0.1h i polozaja tezista jednog reda
                 % armature precnika 36 mm (najveca moguca armatura)
-                d2 = min([0.1*dims.h this.c_nom+this.stirrup+36/2]);
+                d2 = min([0.1*dims.h this.c_nom+this.stirrup+32/2]);
                 zd = d - d2;
                 Fs2 = dM / zd; % [N]
                 As1_pot = (Fs1+Fs2) / this.fyd; % mm2
@@ -372,16 +376,31 @@ classdef CrossSection < handle
             p(:,4) = p(:,2) + [dim.bf dim.bf dim.bw dim.bw]';
         end
         
+        function fcd = get.fcd(this)
+            fcd = this.alpha * this.fck / this.gammac;
+        end
+        
+        function ecu2 = get.ecu2(this)
+            % maksimalna dopustena dilatacija u betonu
+            % usvaja se da je negativna
+            if this.fck < 50
+                ecu2 = -3.5/1000;
+            else
+                % formula iz EC2
+                ecu2 = -(2.6+35*((90-this.fck)/100)^4)/1000;
+            end
+        end
+        
         function Fc = get.Fc(this)
             %%% FC racuna intenzitet rezultantne sile u betonu Fc [N]
             x = this.x;
             Fc = abs(integral(@this.sigmacb, 0, x)); % N
-            rebars = findobj(this.Rebars, 'zone', 2);
-            if ~isempty(rebars)
-                % umanjuje silu Fc za dio koji je nosila povrsina koju sad
-                % zauzima armatura u pritisnutoj zoni
-                Fc = Fc - sum([rebars.Area])*this.sigmac(this.xFs2);
-            end
+%             rebars = findobj(this.Rebars, 'zone', 2);
+%             if ~isempty(rebars) %&& ~this.ignoreCRebars
+%                 % umanjuje silu Fc za dio koji je nosila povrsina koju sad
+%                 % zauzima armatura u pritisnutoj zoni
+%                 Fc = Fc - sum([rebars.Area])*this.sigmac(this.xFs2);
+%             end
         end
         
         function xFc = get.xFc(this)
@@ -435,7 +454,7 @@ classdef CrossSection < handle
         % get.Mrd funkcija racuna reaktivni moment savijanja presjeka, na
         % osnovu usvojene armature
         function Mrd = get.Mrd(this)
-            if isempty(this.Rebars)
+            if isempty(findobj(this.Rebars, 'zone', 1))
                 Mrd = 0;
                 return;
             end
@@ -458,9 +477,8 @@ classdef CrossSection < handle
                 this.x = (xmin+xmax)/2;
                 dF = abs(this.Fs1+Nsd-this.Fc-this.Fs2);
             end
+            % Moment savijanja u odnosu na teziste zategnute armature
             Mrd = this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-dims.h/2); % [Nmm]
-            %this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-dims.h/2);
-            %(this.Fs1*this.xFs1-this.Fc*this.xFc-this.Fs2*this.xFs2-this.Nsd*dims.h/2); 
         end
         
         function Ac = get.Ac(this)
@@ -602,9 +620,9 @@ classdef CrossSection < handle
             
             % calculate x and y data for patch object
             zone = 1;
-            x2 = this.dims.h-this.c_nom-this.ds_max(zone)/2;
-            x = [0 x2 x2 0];
-            y = [this.ecu2 this.strain(x2) 0 0];
+            d = this.dims.h - this.c_nom - this.stirrup - this.ds_max(1)/2;
+            x = [0 d d 0];
+            y = [this.ecu2 this.strain(d) 0 0];
             
             % odnos za uskladjivanje visine grafa dilatacija sa prikazom
             % poprecnog presjeka
@@ -621,7 +639,6 @@ classdef CrossSection < handle
             % ako ima, provjeriti odnos x/d i promijeniti boju plota
             color = [0.6 0.8 0];
             if this.xFs1 ~= 0
-                d = this.dims.h - this.c_nom - this.stirrup - this.ds_max(1)/2;
                 if this.x/d > this.xdRatio % umjesto xFs1 da ide koordinata zadnjeg reda armature?
                     color = [0.8 0 0];
                 end
@@ -633,13 +650,114 @@ classdef CrossSection < handle
                 'FaceAlpha', 0.6,...
                 'XData', x, 'YData', y);
                 
-           text(50, this.ecu2, num2str(this.ecu2*1000),...
+           label = text(0, this.ecu2, num2str(this.ecu2*1000, '%0.1f'),...
                'Parent', ax,...
                'Color', [0.3059 0.3961 0.5804]); % numericki prikaz dilatacije u betonu u promilima
+           % mijenjam units u pixels da bih mogao definisati apsolutan polozaj taga
+           % nezavisno od razmjere grafika
+           label.Units = 'pixels';
+           % pomjera tag udesno za 5 px i nadole za 10 px u odnosu na
+           % prvobitni polozaj
+           label.Position(1:2) = [label.Position(1)+5 label.Position(2)-10];
+           
+           % dilatacija u celiku u promilima
            text(this.dims.h-50, -1/1000, num2str(this.strain(this.dims.h)*1000, '%0.2f'),...
                'Parent', ax,...
-               'Color', [0.3059 0.3961 0.5804]); % dilatacija u celiku u promilima
+               'Color', [0.3059 0.3961 0.5804]); 
+           
+           % oznacavanje x koordinata
+           ax.XTick = [0 this.x d];
+           ax.XTickLabel = sprintf('%.1f\n', ax.XTick);
         end
+        
+        function plotStress(this, ax, section_axes)
+            % odnos za uskladjivanje visine grafa napona sa prikazom
+            % poprecnog presjeka
+            ratio = ax.Position(3)/section_axes.Position(3);
+                        
+            % setup axes properties
+            cla(ax);            
+            ax.CameraUpVector = [-1 0 0]; % rotira koord. sistem za 90 stepeni u smjeru kazaljke
+            set(ax,'YDir','normal',...
+                'PlotBoxAspectRatio', section_axes.PlotBoxAspectRatio.*[1 ratio 1],...
+                'XLim', section_axes.XLim);
+            numPoints = 100;
+            x = linspace(0, this.x, numPoints);
+            y = this.sigmac(x);
+            % dodavanje koordinata pocetne tacke na kraju niza da se
+            % zatvori kontura
+            x = [x 0];
+            y = [y 0];
+            
+            patch('FaceColor', 0.8627*[1 1 1],...
+                'Tag', 'stress_patch',...
+                'Parent', ax,...
+                'LineStyle', 'none',...
+                'XData', x, 'YData', y);
+            
+            % oznacavanje koordinata polozaja sila i n. ose na x osi
+            ax.XTick = unique([this.xFc this.xFs1 this.xFs2 this.x]);
+            ax.XTickLabel = sprintf('%.1f\n', ax.XTick);
+            
+            % oznacavanje fcd na y osi
+            ax.YTick = [0 this.fcd];
+            ax.YTickLabel = sprintf('%.1f\n', ax.YTick);
+            
+            % ucrtavanje sile u betonu
+            fcolor = [0.2 0.2 0.2];
+            x = this.xFc;
+            drawVector(x, '<', fcolor, this.Fc);
+            
+            % ucrtavanje sile u zategnutoj armaturi
+            if ~isempty(findobj(this.Rebars, 'zone', 1))
+                fcolor = [0 0.6 0.8];
+                x = this.xFs1;
+                drawVector(x, '>', fcolor, this.Fs1);
+            end
+            
+            % ucrtavanje sile u pritisnutoj armaturi
+            if ~isempty(findobj(this.Rebars, 'zone', 2))
+                fcolor = [0 0.6 0.8];
+                x = this.xFs2;
+                drawVector(x, '<', fcolor, this.Fs2);
+            end
+            
+            % pomocna funkcija za ucrtavanje vektora sila
+            function drawVector(x, triangleStyle, color, force)
+                % crta silu
+                fx = x;
+                fy = 0.7*ax.YLim(2);
+                f = line(fx*[1 1], [0 fy], 'Parent', ax, ...
+                    'LineWidth', 1.5, 'Color', color);
+                % dodaje strelicu na vrh linije
+                ax.Units = 'points';
+                px = fx;
+                py = 0;
+                p = line(px*[1 1], [py py], 'Parent', ax,...
+                'Marker', triangleStyle, 'MarkerFaceColor', color,...
+                'MarkerEdgeColor', 'none');
+                dy = 0;
+                if strcmp(triangleStyle, '>')
+                    dy = 0.7*ax.YLim(2);
+                end
+                p.YData = dy + p.MarkerSize/ax.OuterPosition(3)*ax.YLim(2)*[1 1];
+                ax.Units = 'pixels';
+                
+                % velicina sile [kN] - tekst
+                label = text(x, fy, [num2str(force/1000, '%0.2f') ' kN'],...
+                    'Parent', ax,...
+                    'Color', color); % numericki prikaz dilatacije u betonu u promilima
+                % mijenjam units u pixels da bih mogao definisati apsolutan polozaj taga
+                % nezavisno od razmjere grafika
+                label.Units = 'pixels';
+                % pomjera tag udesno za 5 px i nadole za 10 px u odnosu na
+                % prvobitni polozaj
+                label.Position(1:2) = [label.Position(1)+10 label.Position(2)];
+            end
+            
+            
+        end
+        
         
         % funkcija za crtanje sipki armature u poprecnom presjeku
         function drawRebar(this, ax)
@@ -708,7 +826,7 @@ classdef CrossSection < handle
             % sigmac(epsilon)
             ec = -this.strain(x); 
             sigma_c = this.sigmac_of_eps(ec); % [N/mm^2]
-            fc = sigma_c.*(this.b(x)); % [N]
+            %fc = sigma_c.*(this.b(x)); % [N]
         end
         function fc = sigmacb(this, x)
             %%% SIGMACB racuna segment sile Fc u liniji na koord. x,
@@ -725,16 +843,21 @@ classdef CrossSection < handle
             % concrete classes [12/15 16/20 20/25 25/30 30/37 35/45 40/50 45/55
             % 50/60] N/mm^2 (MPa)
             fck = this.fck; % C30/37
-            gammac = this.gammac; % partial safety factor for concrete
-            fcd = fck/gammac; % design concrete strength
-            alpha = this.alpha; 
-
+            if fck < 50
+                ec2 = 2/1000;
+                n = 2;
+            else
+                ec2 = (2+0.085*(fck-50)^0.53)/1000;
+                n = 1.4+23.4*((90-fck)/100)^4;
+            end
+            fcd = this.fcd; % design concrete strength
+            
             % if ec>=2 promils, set sigma_c equal to alpha*fcd constant
-            sigma_c(ec>=0.002) = alpha * fcd; 
+            sigma_c(ec>=ec2) = fcd; 
             % calculate sigma_c for the remaining elements based on the parabolic part of
             % the concrete stress-strain graph
             logical_index = (sigma_c == 0);
-            sigma_c(logical_index) = alpha*fcd/4*(4-ec(logical_index)).*ec(logical_index); %[N/mm^2]
+            sigma_c(logical_index) = fcd*(1-(1-ec(logical_index)/ec2).^n); %[N/mm^2]
         end
         
         function out = sigmac_moment(this,x)

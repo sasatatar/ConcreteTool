@@ -124,7 +124,7 @@ if nargin>=4
     ax = handles.section_axes;
     cs.plotSection(ax);
     % Ogranicava prikaz na zategnutu zonu presjeka
-    ax.XLim = [0.65*cs.dims.h cs.dims.h];
+    ax.XLim = [0.5*cs.dims.h cs.dims.h];
     ax.YLim = [(cs.dims.bf-cs.dims.bw)/2 (cs.dims.bf-cs.dims.bw)/2+cs.dims.bw];
     % prikaz pomocnih linija
     cs.plotGrid(ax, zone);
@@ -383,7 +383,7 @@ zone = handles.zone_popup.Value;
 setDsPopup(handles);
 ax = handles.section_axes;
 if zone == 1
-    ax.XLim = [0.65*cs.dims.h cs.dims.h];
+    ax.XLim = [0.5*cs.dims.h cs.dims.h];
     ax.YLim = [(cs.dims.bf-cs.dims.bw)/2 (cs.dims.bf-cs.dims.bw)/2+cs.dims.bw];
 elseif zone == 2
     ax.XLim = [0 0.5*cs.dims.h];
