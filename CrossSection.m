@@ -9,8 +9,6 @@ classdef CrossSection < handle
         %   .hv;           % visina vute (prelaz imzedju flanse i rebra)
         %   .bw;            % sirina rebra
         %   .h;             % ukupna visina nosaca
-        
-        x;            % polozaj neutralne ose od vrha presjeka [mm]
         fck = 30;           % karakt. cvrtstoca betona [MPa] (C30/37)
         fctm = 2.9;         % cvrstoca betona na zatezanje (potrebno kod proracuna As1,min)
         alpha = 0.85;       % koef. koji uzima u obzir dugorocne negativne 
@@ -56,8 +54,7 @@ classdef CrossSection < handle
         As2;                % ukupna povrsina ugradjene pritisnute arm. [mm2]
         Ac;                 % povrsina betona
         Mrd;                % reaktivni moment savijanja (kNm)
-        ignoreCRebars = 0;  % boolean flag indicating if compressed rebars should 
-                                    % be ignored when calculating Fc
+        x;                  % polozaj neutralne ose od vrha presjeka [mm]
     end%%
     
     %% Metode za armaturu
@@ -244,7 +241,6 @@ classdef CrossSection < handle
             %%% CALCULATEAS racuna potrebnu kolicinu armature 
             %%% Msd - moment savijanja u presjeku u Nmm
             % ako d nije definisano, usvaja se 0.9h
-            %this.ignoreCRebars = 1;
             dims = this.dims;
             if nargin <= 2
                 d = 0.9*dims.h;
@@ -265,8 +261,9 @@ classdef CrossSection < handle
             % maksimalni moment savijanja sa jednostrukim armiranjem (Mrd
             % za x = xmax)
             this.x = xmax; % maksimalna vrijednost x dozvoljena prema EC2
-            Mrd = getMrd();
             Fc = this.Fc;
+            Mrd = getMrd();
+            
             
             % Minimalna i maksimalna kolicina armature:
             
@@ -296,7 +293,7 @@ classdef CrossSection < handle
                 % pretpostavka o polozaju tezista pritisnute armature
                 % manja vrijednost od 0.1h i polozaja tezista jednog reda
                 % armature precnika 36 mm (najveca moguca armatura)
-                d2 = min([0.1*dims.h this.c_nom+this.stirrup+32/2]);
+                d2 = min([0.1*dims.h this.c_nom+this.stirrup+this.ds_max(2)/2]);
                 zd = d - d2;
                 Fs2 = dM / zd; % [N]
                 As1_pot = (Fs1+Fs2) / this.fyd; % mm2
@@ -331,10 +328,9 @@ classdef CrossSection < handle
             % momenta Mrd na osnovu poznate sile u betonu (Fc) i kraka
             % unutrasnjih sila (z)
             function Mrd = getMrd()
-                Fc = this.Fc;
                 xFc = this.xFc;
                 z = d-xFc;
-                Mrd = Fc*z; % [Nmm]
+                Mrd = this.Fc*z; % [Nmm]
             end
         end
     end
@@ -352,12 +348,17 @@ classdef CrossSection < handle
         end
         
         function set.x(this, x)
-            %%% SET.X zadaje polozaj neutralne use i poziva funciju za
-            %%% azuriranje grafikona (treba sve funkcije za plotanje
-            %%% staviti u jednu glavnu funkciju)
             this.x = x;
-            %this.plotCompression;
-            %this.plotStrain;
+            % FC racuna intenzitet rezultantne sile u betonu Fc [N]
+            Fc = abs(integral(@this.sigmacb, 0, x)); % N
+            this.Fc = Fc;
+            % XFC racuna polozaj tezista sile u betonu Fc racunajuci od
+            % vrha presjeka [mm]
+            this.xFc = abs(integral(@this.sigmac_moment, 0, x)/Fc);  %[mm]
+        end
+        
+        function x = get.x(this)
+            x = this.x;
         end
         
         function p = get.Points(this)
@@ -392,27 +393,11 @@ classdef CrossSection < handle
         end
         
         function Fc = get.Fc(this)
-            %%% FC racuna intenzitet rezultantne sile u betonu Fc [N]
-            x = this.x;
-            Fc = abs(integral(@this.sigmacb, 0, x)); % N
-%             rebars = findobj(this.Rebars, 'zone', 2);
-%             if ~isempty(rebars) %&& ~this.ignoreCRebars
-%                 % umanjuje silu Fc za dio koji je nosila povrsina koju sad
-%                 % zauzima armatura u pritisnutoj zoni
-%                 Fc = Fc - sum([rebars.Area])*this.sigmac(this.xFs2);
-%             end
+            Fc = this.Fc;
         end
         
         function xFc = get.xFc(this)
-            %%% XFC racuna polozaj tezista sile u betonu Fc racunajuci od
-            %%% vrha presjeka [mm]
-            Fc = this.Fc; % [N]
-            xFc = abs(integral(@this.sigmac_moment, 0, this.x)/Fc);  %[mm]
-%             rebars2 = findobj(this.Rebars, 'zone', 2);
-%             if ~isempty(rebars2)
-%                 dFc = sum([rebars2.Area])*this.sigmac(this.xFs2);
-%                 xFc = ((Fc+dFc)*xFc - dFc*this.xFs2)/Fc; % provjeriti s prof.
-%             end
+            xFc = this.xFc;
         end
         
         function Fs2 = get.Fs2(this)

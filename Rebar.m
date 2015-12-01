@@ -64,21 +64,23 @@ classdef Rebar < dynamicprops
         
         %% povrsina poprecnog presjeka sipke
         function area = get.Area(this)
-            area = (this.d)^2*pi/4; % [mm^2]
+            area = this.Area;
         end
         
         %% precnik sipke [mm] (setter)
         function set.d(obj, d)
-            if d>0
-                obj.d = d;
-            else
-                error('Precnik mora biti pozitivan.');
-            end
+            obj.d = d;
+            obj.Area = d^2*pi/4; % [mm^2]
         end
         
         %% racunski dopusteni napon celika, na granici tecenja
         function fyd = get.fyd(this)
-            fyd = this.fyk/this.gamma_s; % MPa [N/mm2]
+            fyd = this.fyd;
+        end
+        
+        function set.fyk(this, fyk)
+            this.fyk = fyk;
+            this.fyd = fyk/this.gamma_s; % MPa [N/mm2]
         end
         
         %% napon u armaturi
