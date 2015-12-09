@@ -14,10 +14,10 @@ classdef CrossSection < handle
         alpha = 0.85;       % koef. koji uzima u obzir dugorocne negativne 
                             % faktore na cvrstocu betona
         gammac = 1.5;       % koeficijent sigurnosti za beton
+        x;                  % polozaj neutralne ose od vrha presjeka [mm]
         
         % podaci vezano za armaturu
         c_nom = 35;             % zastitni sloj betona [mm]
-        stirrup = 12;           % uzengije [mm]
         Rebars = Rebar.empty;   % matrica sipki armature
         rebarMesh;              % matrica sa 1 na zauzetim mjestima za sipke
         dg = 32;                % najvece zrno agregata  
@@ -32,6 +32,13 @@ classdef CrossSection < handle
         minRebarSpacing;        % minimalni svijetli razmak izmedju sipki
         xdRatio;                % odnos x/d = 0.45 za C<=50/60, 0.35 za C>=55/67
         Nsd = 0;                % normalna sila koja djeluje u presjeku (pritisak je pozitivan)
+        
+        % podaci vezano za uzengije - stirrup
+        stirrup = 12;           % uzengije [mm]
+        fywk = 500;             % karakteristicna cvrstoca za uzengije
+        fywd;                   % racunska granica tecenja u uzengijama fywd = fywk / gamma_s
+        s;                      % razmak izmedju uzengija [mm]
+        m;                      % sjecnost        
     end
     %% Dependent
     properties (Dependent)
@@ -41,6 +48,7 @@ classdef CrossSection < handle
         Points;
         fcd; % design concrete strength fcd = alfacc * fck / gammac
         ecu2;       % strain in concrete / dilatacija u betonu
+        center;         % center of gravity / teziste presjeka
     end
     %% Read-only properties - pristupa im se preko get metoda
     properties (SetAccess = 'private')
@@ -54,11 +62,15 @@ classdef CrossSection < handle
         As2;                % ukupna povrsina ugradjene pritisnute arm. [mm2]
         Ac;                 % povrsina betona
         Mrd;                % reaktivni moment savijanja (kNm)
-        x;                  % polozaj neutralne ose od vrha presjeka [mm]
     end%%
     
     %% Metode za armaturu
     methods
+        %% x koordinata tezista poprecnog presjeka
+        function x = get.center(this)
+            x = integral(@this.Sy, 0, this.dims.h)/this.Ac;
+        end
+        
         function As1 = get.As1(this)
             rebars = findobj(this.Rebars, 'zone', 1);
             As1 = sum([rebars.Area]);
@@ -70,6 +82,10 @@ classdef CrossSection < handle
         
         function fyd = get.fyd(this)
             fyd = this.fyk / this.gamma_s; %[MPa tj. N/mm2]
+        end
+        
+        function fywd = get.fywd(this)
+            fywd = this.fywk / this.gamma_s; % [MPa]
         end
         
         function rect = addRebar(this, ax, ds, mouseX, mouseY, zone)
@@ -247,7 +263,7 @@ classdef CrossSection < handle
             end
             % povecanje momenta usljed djelovanja normalne sile
             Nsd = this.Nsd;
-            Msd = Msd + Nsd*(d-dims.h/2);
+            Msd = Msd + Nsd*(d-this.center);
             
             % pretpostavlja se jednostruko armiranje
             As1_pot = 0;
@@ -271,7 +287,7 @@ classdef CrossSection < handle
             As1_min = max([0.26*this.fctm/this.fyk*dims.bw*dims.h...
                 0.0013*dims.bw*dims.h]); % ili d umjesto dims.h?
             % ukupna maskimalna kolicina armature (As1+As2)
-            As_max = 0.04*this.Ac; % ili 0.04*dims.bw*dims.h
+            As_max = 0.04*this.Ac;
             
             % ako nije definisan Msd, usvaja se As1,min
             if Msd == 0
@@ -285,11 +301,11 @@ classdef CrossSection < handle
                 z = d-this.xFc;
                 Fs1 = Mrd / z - Nsd; % [N]
                 dM = Msd - Mrd;
-                if dM > 0.5*Mrd
-                    msgbox('Msd > 1.5 Mrd,max pri jednostrukom armiranju, potrebna je veca visina presjeka.',...
-                    'Premalen presjek', 'help');
-                    return;
-                end
+%                 if dM > 0.5*Mrd
+%                     msgbox('Msd > 1.5 Mrd,max pri jednostrukom armiranju, potrebna je veca visina presjeka.',...
+%                     'Premalen presjek', 'help');
+%                     return;
+%                 end
                 % pretpostavka o polozaju tezista pritisnute armature
                 % manja vrijednost od 0.1h i polozaja tezista jednog reda
                 % armature precnika 36 mm (najveca moguca armatura)
@@ -332,6 +348,29 @@ classdef CrossSection < handle
                 z = d-xFc;
                 Mrd = this.Fc*z; % [Nmm]
             end
+        end
+        
+        function [s] = calculateAsw(this, Vsd)
+            %%% CALCULATEASW racuna potreban razmak izmedju uzengija
+            s = 0;
+            fcd = this.fcd; % racunska cvrstoca betona
+            bw = this.dims.bw; % sirina rebra
+            z = this.xFs1 - this.xFc; % krak unutrasnjih sila (zanemaruje se Fs2)
+            ds = this.stirrup; % usvojeni precnik uzengija
+            m = this.m; % zadana sjecnost
+            Asw = this.m*ds^2*pi/4; % evektivna povrsina jedne uzengije [mm2]
+            
+            % koef. redukcije cvrstoce na pritisak u betonu
+            v1 = 0.6*(1-this.fck/250);
+            Vrd_max = bw*z*v1*fcd/2;
+            if Vsd > Vrd_max
+                disp('Presjek ne moze da primi zadanu silu. Povecajte presjek ili usvojite vecu klasu betona');
+                return;
+            end
+            % proracun ugla teta
+            b = bw*z*v1*fcd/Vsd;
+            cotTheta = (b+sqrt(b^2-4))/2;
+            s = Asw*z*fywd*cotTheta/Vsd;
         end
     end
     
@@ -463,12 +502,13 @@ classdef CrossSection < handle
                 dF = abs(this.Fs1+Nsd-this.Fc-this.Fs2);
             end
             % Moment savijanja u odnosu na teziste zategnute armature
-            Mrd = this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-dims.h/2); % [Nmm]
+            Mrd = this.Fc*(this.xFs1-this.xFc)+this.Fs2*(this.xFs1-this.xFs2)-Nsd*(this.xFs1-this.center); % [Nmm]
         end
         
         function Ac = get.Ac(this)
             Ac = integral(@this.b, 0, this.dims.h); % [mm2]
         end
+        
     end
     
     methods
@@ -530,6 +570,16 @@ classdef CrossSection < handle
             %ax.YLim = [min(y)-50, max(y)+50];
             section_line.XData = x;
             section_line.YData = y;
+            
+            % oznake dimenzija presjeka na x osi
+            ticksX = unique(this.Points(:,1));
+            ax.XTick = ticksX(ticksX~=0);
+            ax.XTickLabel = sprintf('%.1f\n', ax.XTick);
+            
+            % oznake dimenzija presjeka na y osi
+            ticksY = unique([this.Points(1,2) this.Points(4,[2 4]) this.Points(1,4)]);
+            ax.YTick = ticksY;
+            ax.YTickLabel = sprintf('%.1f\n', ax.YTick);
             
             % uzengije
             c_nom = this.c_nom;
@@ -681,7 +731,8 @@ classdef CrossSection < handle
                 'XData', x, 'YData', y);
             
             % oznacavanje koordinata polozaja sila i n. ose na x osi
-            ax.XTick = unique([this.xFc this.xFs1 this.xFs2 this.x]);
+            ticks = unique([this.xFc this.xFs1 this.xFs2 this.x]);
+            ax.XTick = ticks(ticks~=0);
             ax.XTickLabel = sprintf('%.1f\n', ax.XTick);
             
             % oznacavanje fcd na y osi
@@ -725,7 +776,7 @@ classdef CrossSection < handle
                 if strcmp(triangleStyle, '>')
                     dy = 0.7*ax.YLim(2);
                 end
-                p.YData = dy + p.MarkerSize/ax.OuterPosition(3)*ax.YLim(2)*[1 1];
+                p.YData = dy*[1 1]; % + p.MarkerSize/ax.OuterPosition(3)*ax.YLim(2)*[1 1];
                 ax.Units = 'pixels';
                 
                 % velicina sile [kN] - tekst
@@ -735,7 +786,7 @@ classdef CrossSection < handle
                 % mijenjam units u pixels da bih mogao definisati apsolutan polozaj taga
                 % nezavisno od razmjere grafika
                 label.Units = 'pixels';
-                % pomjera tag udesno za 5 px i nadole za 10 px u odnosu na
+                % pomjera strelicu udesno za 10 px u odnosu na
                 % prvobitni polozaj
                 label.Position(1:2) = [label.Position(1)+10 label.Position(2)];
             end
@@ -758,6 +809,13 @@ classdef CrossSection < handle
     
     
     methods (Access = 'public')
+        %% pomocna funkcija koja racuna staticki moment povrsine oko y ose
+        % koristi se u proracunu x koordinate tezista poprecnog presjeka
+        function Sy = Sy(this, x)
+            b = this.b(x);
+            Sy = b.*x;
+        end
+        
         %% daje sirinu nosaca b na odstojanju x od vrha u mm
         function [b,y] = b(this,x) 
             % broj koraka za for petlju jednak je broju parova tacaka

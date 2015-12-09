@@ -54,7 +54,10 @@ function ConcreteTool_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % Choose default command line output for ConcreteTool
 handles.output = hObject;
+% custom close function
 hObject.CloseRequestFcn = @close;
+% enable axes toolbar
+set(hObject,'toolbar','figure')
 % podesavanje dimenzija prozora
 hObject.Position(3:4) = [707 550];
 
