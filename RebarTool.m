@@ -22,7 +22,7 @@ function varargout = RebarTool(varargin)
 
 % Edit the above text to modify the response to help RebarTool
 
-% Last Modified by GUIDE v2.5 03-Nov-2015 17:03:17
+% Last Modified by GUIDE v2.5 20-Dec-2015 06:31:16
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -438,11 +438,15 @@ function RebarTool_figure_WindowButtonMotionFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 ax = handles.section_axes;
+% provjerava da li je ucitan CrossSection objekat
+% i prekida izvrsavanje funkcije ako nije
 if isfield(handles, 'crossSection')
     cs = handles.crossSection;
 else
     return;
 end
+% provjerava da li se mis nalazi iznad neke od sipki
+% i prikazuje precnik sipke u popup prozoru
 cp = ax.CurrentPoint;
 tags = findobj(ax, 'Tag', 'rebarTag');
 if ~isempty(tags)
@@ -454,4 +458,3 @@ for i = 1:numel(cs.Rebars)
         rebar.showTag(ax, cp);
     end
 end
-

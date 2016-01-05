@@ -7,9 +7,9 @@ classdef Rebar < dynamicprops
         d;              % precnik sipke [mm]
         Position;       % [x y] koordinate (Position)
         section;        % CrossSection handle
-        fyk = 500;      % 500 MPa za armaturu B500 
-        Es = 200e+3;    % modul elasticnosti celika 200000 [MPa]
-        gamma_s = 1.15;  % koef. sigurnosti za fyd = fyk/gamma_s
+        %fyk = 500;      % 500 MPa za armaturu B500 
+        Es;             % modul elasticnosti celika 200000 [MPa]
+        %gamma_s = 1.15;  % koef. sigurnosti za fyd = fyk/gamma_s
         fyd;            % racunski dopusteni napon u celiku [MPa]
         x;              % x koordinata [mm]
         y;              % y koordinata [mm]
@@ -24,7 +24,7 @@ classdef Rebar < dynamicprops
     
     methods
         %% constructor
-        function obj = Rebar(d,cs,x,y,row,column,zone,Es,fyk)
+        function obj = Rebar(d,cs,x,y,row,column,zone, Es, fyk, gamma_s)
             if nargin > 0
                 correction = (cs.ds_max(zone)-d)/2;
                 if cs.ds_max(zone) ~= d && column == 1
@@ -47,8 +47,10 @@ classdef Rebar < dynamicprops
                 obj.row = row;
                 obj.column = column;
                 obj.zone = zone;
-                obj.Es = Es;
-                obj.fyk = fyk;
+                % ovi podaci se vuku iz presjeka
+%                 obj.Es = Es;
+%                 obj.fyk = fyk;
+%                 obj.gamma_s = gammas;
             end
         end
         
@@ -75,12 +77,11 @@ classdef Rebar < dynamicprops
         
         %% racunski dopusteni napon celika, na granici tecenja
         function fyd = get.fyd(this)
-            fyd = this.fyd;
+            fyd = this.section.fyd;
         end
         
-        function set.fyk(this, fyk)
-            this.fyk = fyk;
-            this.fyd = fyk/this.gamma_s; % MPa [N/mm2]
+        function Es = get.Es(this)
+            Es = this.section.Es;
         end
         
         %% napon u armaturi
@@ -122,7 +123,7 @@ classdef Rebar < dynamicprops
                 'Position', [rectX rectY d d],...
                 'Curvature', [1 1],...
                 'LineStyle', 'none',...
-                'FaceColor', 0.4*[1 1 1],... %[0.2 0 1]
+                'FaceColor', [0 0.4000 0.6000],... %[0.2 0 1]
                 'UserData', [row column zone]);
         end
         

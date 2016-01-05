@@ -22,7 +22,7 @@ function varargout = ConcreteTool(varargin)
 
 % Edit the above text to modify the response to help ConcreteTool
 
-% Last Modified by GUIDE v2.5 20-Nov-2015 02:39:13
+% Last Modified by GUIDE v2.5 19-Dec-2015 04:39:19
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -57,68 +57,117 @@ handles.output = hObject;
 % custom close function
 hObject.CloseRequestFcn = @close;
 % enable axes toolbar
-set(hObject,'toolbar','figure')
+set(hObject,'toolbar','figure');
 % podesavanje dimenzija prozora
 hObject.Position(3:4) = [707 550];
 
+% generise oznake od grckih slova u interfejsu
+drawLabels(handles);
+
+% load the default CrossSection object from a template and store it into handles structure
+section_template = fullfile(pwd,'section_templates','default_template.mat');
+if exist(section_template, 'file')==2
+    load(section_template);
+else
+    % if not available, create the default one
+    section = CrossSection;
+end
+
+handles.crossSection = section;
+% set tabs amd save their handles
+tabGroup = uitabgroup(hObject,'Position',[0 0 1 1], 'Tag', 'tabGroup');
+handles.tabGroup = tabGroup;
+handles.section_uitab = uitab(tabGroup,'Title','Presjek', 'Tag', 'section_uitab');
+handles.rebar_uitab = uitab(tabGroup,'Title','Podužna armatura', 'Tag', 'rebar_uitab');
+handles.stirrup_uitab = uitab(tabGroup, 'Title', 'Poprecna armatura', 'Tag', 'stirrup_uitab');
+
+handles.rebar_panel.Parent = handles.rebar_uitab;
+handles.rebar_panel.Position(1:2) = [15 15];
+handles.section_panel.Parent = handles.section_uitab;
+handles.section_panel.Position(1:2) = [15 15];
+
+%% ucitavanje programa za uzengije 
+handles = loadStirrup(hObject, handles);
+
+% Update handles structure
+guidata(hObject, handles);
+handles.crossSection.plotSection(handles.crossSection_axes);
+
+% set callback function for tab click
+tabGroup.SelectionChangedFcn = {@TabCallback};
+% load data to text fields
+readData(handles);
+
+function handles = loadStirrup(hObject, handles)
+    %% ucitavanje programa za uzengije
+    %% funkcija vraca azuriran handles
+    StirrupTool;
+    % get stirrup_figure handle
+    stirrup_figure = findobj('Type', 'figure', 'Tag', 'stirrup_figure');
+    % get stirrup_panel handle
+    Vsd_panel = findobj(stirrup_figure(1), 'Tag', 'Vsd_panel');
+    % clear children in stirrup_uitab (just in case)
+    delete(handles.stirrup_uitab.Children);
+    % transfer stirrup_panel to stirrup_uitab
+    Vsd_panel(1).Parent = handles.stirrup_uitab;
+    % save handles from stirrup_figure
+    handles.stirrup_tab = guidata(stirrup_figure(1));
+    % brisanje prozora stirrup_figure / delete stirrup_figure
+    delete(stirrup_figure);
+    
+    % podesavanje tabele
+    table = handles.stirrup_tab.Vrd_table;
+    %table.ColumnFormat = {'char', 'bank', 'bank', 'bank', 'bank'};
+    tableData = {'Potr.' [] [] [] [] []; 'Usvo.' [] [] [] [] []};    
+    table.Data = tableData;
+    table.ColumnWidth = {50 62 62 62 62 64};
+    
+
+function drawLabels(handles)
 % oznaka za ecu2 unutar axes objekta:
 axis(handles.ecu2Label_axes, 'off');
 text(0, 0.5, ['$\varepsilon_{cu2}$'],... % generise grcko epsilon sa cu2 u indeksu
     'HorizontalAlignment', 'Left',...
     'Interpreter', 'latex', 'FontSize', 12,...
     'Parent', handles.ecu2Label_axes);
-text(0.6, 0.5, ['[' char(8240) ']:'],... % char(8240) generise simbol za promil
+text(0.5, 0.5, ['[' char(8240) ']:'],... % char(8240) generise simbol za promil
     'HorizontalAlignment', 'Left',...
     'FontSize', 11,...
     'Parent', handles.ecu2Label_axes);
 % oznaka za alfa i gama_c unutar axes objekta:
-axis(handles.alphaLabel_axes, 'off');
-text(0, 0.5, ['$\alpha=$'],... % generise grcko epsilon sa cu2 u indeksu
+axis(handles.alphaLabel_axes, 'off'); % skriva ose
+text(0, 0.5, ['$\alpha_{cc}=$'],... % generise grcko alfa sa cc u indeksu
     'HorizontalAlignment', 'Left',...
     'Interpreter', 'latex', 'FontSize', 11,...
     'Parent', handles.alphaLabel_axes);
-text(0.8, 0.5, ['$\gamma_c=$'],... 
+text(0.7, 0.5, ['$\gamma_c=$'],... 
     'HorizontalAlignment', 'Left',...
     'Interpreter', 'latex', 'FontSize', 11,...
     'Parent', handles.alphaLabel_axes);
 
-% create the CrossSection object and store it into handles structure
-handles.crossSection = CrossSection;
-handles.crossSection.plotSection(handles.crossSection_axes);
-
-
-% set tabs
-tabGroup = uitabgroup(hObject,'Position',[0 0 1 1], 'Tag', 'tabGroup');
-sectionTab = uitab(tabGroup,'Title','Presjek', 'Tag', 'section_uitab');
-rebarTab = uitab(tabGroup,'Title','Armatura', 'Tag', 'rebar_uitab');
-
-handles.rebar_panel.Parent = rebarTab;
-handles.rebar_panel.Position(1:2) = [15 15];
-handles.section_panel.Parent = sectionTab;
-handles.section_panel.Position(1:2) = [15 15];
-
-% save tab handles
-handles.tabGroup = tabGroup;
-handles.section_uitab = sectionTab;
-handles.rebar_uitab = rebarTab;
-% set callback function
-tabGroup.SelectionChangedFcn = {@TabCallback, handles};
-% Update handles structure
-guidata(hObject, handles);
+% oznaka za gamma_s unutar axes objekta:
+axis(handles.gammas_axes, 'off');
+text(0, 0.5, ['$\gamma_s=$'],... % generise grcko gama_s
+    'HorizontalAlignment', 'Left',...
+    'Interpreter', 'latex', 'FontSize', 12,...
+    'Parent', handles.gammas_axes);
 
 
 function close(obj, data, handles)
 delete(obj);
 
-function TabCallback(hObject, callbackdata, handles)
-% izvrsava se ako je odabran drugi tab (armatura)
-if hObject.SelectedTab == handles.rebar_uitab
-    % plot poprecnog presjeka i dilatacija
-    updateRebarData(hObject, callbackdata, handles);
-    dhRatio = str2double(handles.dhRatio_edit.String);
-    cs = handles.crossSection;
-    handles.d_edit.String = num2str(dhRatio*cs.dims.h, '%.1f');
-    handles.As_uitable.Data = [cs.As1_req cs.As2_req; cs.As1 cs.As2];
+function TabCallback(hObject, callbackdata)
+handles = guidata(hObject);
+cs = handles.crossSection;
+% ucitava podatke iz CrossSection objekta i azurira prikaz u poljima
+% poziva i updateAxes funkciju
+readData(handles); 
+if hObject.SelectedTab == handles.section_uitab
+    
+elseif hObject.SelectedTab == handles.rebar_uitab
+
+elseif hObject.SelectedTab == handles.stirrup_uitab
+    cs.calculateAsw([handles.stirrup_tab.Vsd_axes handles.stirrup_tab.al_axes]);
 end
 
 
@@ -243,67 +292,142 @@ end
 
 
 % ucitava podatke iz polja i pohranjuje ih u crossSection objekat
-function updateData(hobject, eventdata, handles)
+function updateData(hObject, eventdata, handles)
 cs = handles.crossSection;
-% azurira karakteristicnu cvrstocu betona
-concreteClass = [12 16 20:5:60 70:10:90;... % fck [MPa]
-    3.5*ones(1,9) 3.1 2.9 2.7 2.6 2.6;... % ecu2 [promili]
-    1.6 1.9 2.2 2.6 2.9 3.2 3.5 3.8 4.1 4.2 4.4 4.6 4.8 5]; % fctm {MPa] - cvrstoca na zatezanje
-cs.fck = concreteClass(1,handles.concreteClass_popup.Value);
-% azurira dopustenu cvrstocu na zatezanje
-cs.fctm = concreteClass(3,handles.concreteClass_popup.Value);
-handles.ecu2_edit.String = num2str(concreteClass(2,handles.concreteClass_popup.Value));
-% zastitni sloj c_nom
-cs.c_nom = str2double(handles.c_nom_edit.String);
-% maks. zrno agregata
-cs.dg = str2double(handles.dg_edit.String);
-% dimenzije
-cs.dims.bf = str2double(handles.bf_edit.String);
-cs.dims.hf = str2double(handles.hf_edit.String);
-cs.dims.hv = str2double(handles.hv_edit.String);
-cs.dims.bw = str2double(handles.bw_edit.String);
-cs.dims.h = str2double(handles.h_edit.String);
-cs.stirrup = str2double(handles.stirrup_edit.String);
-cs.alpha = str2double(handles.alpha_edit.String);
-cs.gammac = str2double(handles.gammac_edit.String);
-cs.Rebars = Rebar.empty;
-cs.x = cs.xdRatio*0.9*cs.dims.h;
-cs.As1_req = 0;
-cs.As2_req = 0;
-% provjera ako je bw = bf => u pitanju je pravougaoni presjek
-if cs.dims.bw == cs.dims.bf
-    cs.dims.hv = 0;
-    cs.dims.hf = 0;
-    handles.hf_edit.String = '0';
-    handles.hv_edit.String = '0';
+if handles.tabGroup.SelectedTab == handles.section_uitab
+    % zastitni sloj c_nom
+    cs.c_nom = str2double(handles.c_nom_edit.String);
+    % maks. zrno agregata
+    cs.dg = str2double(handles.dg_edit.String);
+    % dimenzije
+    cs.dims.bf = str2double(handles.bf_edit.String);
+    cs.dims.hf = str2double(handles.hf_edit.String);
+    cs.dims.hv = str2double(handles.hv_edit.String);
+    cs.dims.bw = str2double(handles.bw_edit.String);
+    cs.dims.h = str2double(handles.h_edit.String);
+    cs.stirrup = str2double(handles.stirrup_edit.String);
+    cs.x = cs.xdRatio*0.85*cs.dims.h;
+    % reset d/h ratio:
+    handles.dhRatio_edit.String = '0.9';
+    handles.d_edit.String = num2str(0.9*cs.dims.h, '%.1f');
+    
+    cs.As1_req = 0;
+    cs.As2_req = 0;
+    % provjera ako je bw >= bf => u pitanju je pravougaoni presjek
+    % pa pomazemo korisniku tako sto automatski prepravljamo bw i ostale dimenzije
+    if (cs.dims.bw >= cs.dims.bf && hObject==handles.bf_edit)
+        cs.dims.bw = cs.dims.bf;
+        handles.bw_edit.String = num2str(cs.dims.bw);
+        cs.dims.hv = 0;
+        cs.dims.hf = 0;
+        handles.hf_edit.String = '0';
+        handles.hv_edit.String = '0';
+    end
+elseif handles.tabGroup.SelectedTab == handles.rebar_uitab
+    % update rebar
+    cs.fyk = str2double(handles.fyk_edit.String);
+    cs.Es = str2double(handles.Es_edit.String);
+    cs.gamma_s = str2double(handles.gammas_edit.String);
+    cs.delta = str2double(handles.xdRatio_edit.String);
+    % update concrete
+    concreteClass = [12 16 20:5:60 70:10:90;... % fck [MPa]
+        3.5*ones(1,9) 3.1 2.9 2.7 2.6 2.6]; % ecu2 [promili]
+    cs.fck = concreteClass(1,handles.concreteClass_popup.Value);
+    cs.alpha_cc = str2double(handles.alpha_cc_edit.String);
+    cs.gammac = str2double(handles.gammac_edit.String);
+    handles.ecu2_edit.String = num2str(concreteClass(2,handles.concreteClass_popup.Value));
+    if cs.fck <= 50
+        xdRatio = 0.45;
+    else
+        xdRatio = 0.35;
+    end
+    if hObject == handles.xdRatio_edit
+        xdRatio = str2double(handles.xdRatio_edit.String);
+    else
+        handles.xdRatio_edit.String = num2str(xdRatio);
+    end
+    cs.xdRatio = xdRatio;
+    % axial force
+    cs.Nsd = str2double(handles.Nsd_edit.String)*1000; % [N]
+    % staticka visina d - sinhronizacija polja
+    if hObject == handles.dhRatio_edit
+        dhRatio = str2double(handles.dhRatio_edit.String);
+        handles.d_edit.String = num2str(dhRatio*cs.dims.h, '%.1f');
+    elseif hObject == handles.d_edit
+        d = str2double(handles.d_edit.String);
+        handles.dhRatio_edit.String = num2str(d/cs.dims.h, '%.2f');
+    end
+elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
+    fields = {'fywk', 'stirrup', 'm', 'alpha', 'sl'};
+    for i = 1:numel(fields)
+        field = fields{i};
+        eval(['cs.' field ' = str2double(handles.stirrup_tab.' field '_edit.String);']);
+    end
+    cs.Vsd = str2double(handles.stirrup_tab.Vsd_edit.String)*1000;
 end
-cs.plotSection(handles.crossSection_axes);
+updateAxes(handles);
 
-% azurira graficke prikaze poprecnog presjeka i armature
-function updateRebarData(hobject, eventdata, handles)
+% azurira graficke prikaze i tabelu armature
+function updateAxes(handles)
 cs = handles.crossSection;
-cs.plotSection(handles.section_axes);
-cs.drawRebar(handles.section_axes);
-% plotStrain funkciji se prosljedjuje i section_axes referenca da bi
-% izracunala velicine dijagrama (da budu u ravnini)
-cs.plotStrain(handles.strain_axes, handles.section_axes);
-cs.plotCompression(handles.section_axes);
-cs.plotStress(handles.stress_axes, handles.section_axes);
-
-% ucitava podatke iz polja pod tabom Armatura i pohranjuje ih u crossSection objekat
-function updateInput(hobject, ~, handles)
-cs = handles.crossSection;
-cs.fyk = str2double(handles.fyk_edit.String);
-cs.Es = str2double(handles.Es_edit.String);
-cs.Nsd = str2double(handles.Nsd_edit.String)*1000; % [N]
-if hobject == handles.dhRatio_edit
-    dhRatio = str2double(handles.dhRatio_edit.String);
-    handles.d_edit.String = num2str(dhRatio*cs.dims.h, '%.1f');
-elseif hobject == handles.d_edit
-    d = str2double(handles.d_edit.String);
-    handles.dhRatio_edit.String = num2str(d/cs.dims.h, '%.2f');
+if handles.tabGroup.SelectedTab == handles.section_uitab
+    cs.plotSection(handles.crossSection_axes);
+elseif handles.tabGroup.SelectedTab == handles.rebar_uitab
+    cs.plotSection(handles.section_axes);
+    cs.drawRebar(handles.section_axes);
+    handles.As_uitable.Data = [cs.As1_req cs.As2_req; cs.As1 cs.As2];
+    
+    % plotStrain funkciji se prosljedjuje i section_axes referenca da bi
+    % izracunala velicine dijagrama (da budu u ravnini)
+    cs.plotStrain(handles.strain_axes, handles.section_axes);
+    cs.plotCompression(handles.section_axes);
+    cs.plotStress(handles.stress_axes, handles.section_axes);
 end
 
+
+function readData(handles)
+cs = handles.crossSection;
+if handles.tabGroup.SelectedTab == handles.rebar_uitab
+    handles.fyk_edit.String = num2str(cs.fyk);
+    handles.Es_edit.String = num2str(cs.Es);
+    handles.gammas_edit.String = num2str(cs.gamma_s);
+    handles.xdRatio_edit.String = num2str(cs.xdRatio);
+    
+    handles.Nsd_edit.String = num2str(cs.Nsd/1000); %[kN]
+    handles.Msd_edit.String = num2str(cs.Msd*10^-6); %[kNm]
+    
+    handles.d_edit.String = num2str(0.9*cs.dims.h, '%.2f');
+    
+    % azurira karakteristicnu cvrstocu betona
+    concreteClass = [12 16 20:5:60 70:10:90]; % fck [MPa]
+    handles.concreteClass_popup.Value = find(concreteClass==cs.fck);
+    handles.alpha_cc_edit.String = num2str(cs.alpha_cc);
+    handles.gammac_edit.String = num2str(cs.gammac);
+    % load section data
+    handles.ecu2_edit.String = num2str(cs.ecu2*-1000);
+elseif handles.tabGroup.SelectedTab == handles.section_uitab
+    % zastitni sloj c_nom
+    handles.c_nom_edit.String = num2str(cs.c_nom);
+    % maks. zrno agregata
+    handles.dg_edit.String = num2str(cs.dg);
+    % stirrups / uzengije
+    handles.stirrup_edit.String = num2str(cs.stirrup);
+    % dimenzije
+    handles.bf_edit.String = num2str(cs.dims.bf);
+    handles.hf_edit.String = num2str(cs.dims.hf);
+    handles.hv_edit.String = num2str(cs.dims.hv);
+    handles.bw_edit.String = num2str(cs.dims.bw);
+    handles.h_edit.String = num2str(cs.dims.h);
+elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
+    % ucitavanje podataka za poprecnu armaturu
+    fields = {'fywk', 'stirrup', 'm', 'alpha', 'sl'};
+    for i = 1:numel(fields)
+        field = fields{i};
+        eval(['handles.stirrup_tab.' field '_edit.String = num2str(cs.' field ');']);
+    end
+    handles.stirrup_tab.Vsd_edit.String = num2str(cs.Vsd/1000);
+end
+updateAxes(handles);
 
 
 
@@ -337,37 +461,18 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in togglebutton1.
-function togglebutton1_Callback(hObject, eventdata, handles)
-% hObject    handle to togglebutton1 (see GCBO)
+function alpha_cc_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to alpha_cc_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hint: get(hObject,'Value') returns toggle state of togglebutton1
-
-
-% --- Executes on button press in togglebutton2.
-function togglebutton2_Callback(hObject, eventdata, handles)
-% hObject    handle to togglebutton2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of togglebutton2
-
-
-
-function alpha_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to alpha_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of alpha_edit as text
-%        str2double(get(hObject,'String')) returns contents of alpha_edit as a double
+% Hints: get(hObject,'String') returns contents of alpha_cc_edit as text
+%        str2double(get(hObject,'String')) returns contents of alpha_cc_edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function alpha_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to alpha_edit (see GCBO)
+function alpha_cc_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to alpha_cc_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -399,54 +504,6 @@ function gammac_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
-
-
-function edit12_Callback(hObject, eventdata, handles)
-% hObject    handle to alpha_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of alpha_edit as text
-%        str2double(get(hObject,'String')) returns contents of alpha_edit as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edit12_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to alpha_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-
-function gama_c_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to gammac_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of gammac_edit as text
-%        str2double(get(hObject,'String')) returns contents of gammac_edit as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function gama_c_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to gammac_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
 
 
 
@@ -657,8 +714,7 @@ handles.Mrd_edit.String = num2str(cs.Mrd*10^-6,'%.2f'); % [kNm]
 % plotStrain funkciji se prosljedjuje i section_axes referenca da bi
 % izracunala velicine dijagrama (da budu u ravnini)
 % azuriraj prikaz
-updateRebarData(hObject, eventdata, handles);
-
+updateAxes(handles);
 
 
 function d_edit_Callback(hObject, eventdata, handles)
@@ -693,15 +749,21 @@ function calculateAs_pushbutton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 cs = handles.crossSection;
 Msd = str2double(handles.Msd_edit.String)*10^6; % [Nmm]
-if Msd~=0
+if Msd~=0 && ~isnan(Msd)
+    cs.Msd = Msd;
     d = str2double(handles.d_edit.String);
-    [As1 As2] = cs.calculateAs(Msd,d);
+    [As1 As2] = cs.calculateAs(d);
     cs.As1_req = As1;
     cs.As2_req = As2;
-    handles.As_uitable.Data(1,1) = As1;
-    handles.As_uitable.Data(1,2) = As2;
+else
+    cs.Msd = 0;
+    As1 = 0;
+    As2 = 0;
+    cs.As1_req = As1;
+    cs.As2_req = As2;
 end
-updateRebarData(hObject, 0, handles);
+% azurira grafikone i tabele
+updateAxes(handles);
 
 
 
@@ -734,3 +796,140 @@ function alphaLabel_axes_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: place code in OpeningFcn to populate alphaLabel_axes
+
+
+
+% --- Executes during object creation, after setting all properties.
+function gammas_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to gammas_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes during object creation, after setting all properties.
+function xdRatio_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to xdRatio_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+tooltip = ['Maksimalan dopusten odnos x /d\n'...
+    '(x - polozaj neutralne ose, d - staticka visina presjeka).'];
+hObject.TooltipString = sprintf(tooltip);
+
+
+% --- Executes during object creation, after setting all properties.
+function gammas_axes_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to gammas_axes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: place code in OpeningFcn to populate gammas_axes
+
+
+
+function gammas_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to gammas_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of gammas_edit as text
+%        str2double(get(hObject,'String')) returns contents of gammas_edit as a double
+
+
+
+
+% --- Executes on selection change in concreteClass_popup.
+function concreteClass_popup_Callback(hObject, eventdata, handles)
+% hObject    handle to concreteClass_popup (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns concreteClass_popup contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from concreteClass_popup
+
+
+
+function ecu2_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to ecu2_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ecu2_edit as text
+%        str2double(get(hObject,'String')) returns contents of ecu2_edit as a double
+
+
+% --- Executes on button press in open_button.
+function open_button_Callback(hObject, eventdata, handles)
+% hObject    handle to open_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% load the default CrossSection object from a template and store it into handles structure
+path = fullfile(pwd,'section_templates');
+file = uigetfile(fullfile(path,'*.mat;'),'Select file');
+if file==0
+    return;
+end
+load(fullfile(path, file));
+handles.crossSection = section;
+% Update handles structure
+guidata(hObject, handles);
+handles.crossSection.plotSection(handles.crossSection_axes);
+% ucitavanje podataka u tekstualna polja u interfejsu
+readData(handles);
+
+
+% --- Executes on button press in save_button.
+function save_button_Callback(hObject, eventdata, handles)
+% hObject    handle to save_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+section = handles.crossSection;
+file = uiputfile(fullfile(pwd,'section_templates','*.mat;'),'Save file');
+% check if file is selected
+if file ~= 0
+    save(fullfile(pwd,'section_templates',file), 'section');
+end
+
+
+% --- Executes during object creation, after setting all properties.
+function delta_axes_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to delta_axes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: place code in OpeningFcn to populate delta_axes
+
+
+
+function delta_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to delta_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of delta_edit as text
+%        str2double(get(hObject,'String')) returns contents of delta_edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function delta_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to delta_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
