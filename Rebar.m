@@ -17,15 +17,21 @@ classdef Rebar < dynamicprops
         column;         % kolona u kojoj se nalazi sipka
         zone;           % zona u kojoj sipka stoji (1 ili 2)
         Fs;             % sila u sipki
+        euk = 50/1000;  % stvarna vrijednost epsilon uk
+        k = 1.08;
     end
     properties (SetAccess = private)
         Area % povrsina poprecnog presjeka [mm^2]
     end
+    properties (Dependent)
+        strainHardening;
+        eud;
+    end
     
     methods
         %% constructor
-        function obj = Rebar(d,cs,x,y,row,column,zone, Es, fyk, gamma_s)
-            if nargin > 0
+        function obj = Rebar(cs,d,x,y,row,column,zone)
+            if nargin == 7
                 correction = (cs.ds_max(zone)-d)/2;
                 if cs.ds_max(zone) ~= d && column == 1
                     y = y - correction;
@@ -51,7 +57,17 @@ classdef Rebar < dynamicprops
 %                 obj.Es = Es;
 %                 obj.fyk = fyk;
 %                 obj.gamma_s = gammas;
+            elseif nargin == 1
+                obj.section = cs;
             end
+        end
+        function out = get.strainHardening(this)
+            out = this.section.strainHardening;
+        end
+        
+        % dopustene dilatacije u celiku
+        function eud = get.eud(this)
+            eud = 0.9*this.euk;
         end
         
         %% Polozaj sipke (x i y koordinata u mm)
@@ -85,16 +101,22 @@ classdef Rebar < dynamicprops
         end
         
         %% napon u armaturi
-        function sigmas = sigmas(this)
+        function sigmas = sigmas(this, x)
             s = this.section;
-            x = this.x;
+            if nargin < 2
+                x = this.x;
+            end
             es1 = s.strain(x); 
             Es = this.Es;
             fyd = this.fyd;
             % granica plasticnosti
             epl = fyd / Es;
             if es1 >= epl
-                sigmas = fyd;
+                if this.strainHardening == 0
+                    sigmas = fyd;
+                else
+                    sigmas = fyd + (this.k*fyd-fyd)/(this.euk-epl)*(es1-epl);
+                end
             else
                 sigmas = es1*Es;
             end
@@ -159,10 +181,5 @@ classdef Rebar < dynamicprops
             out = (x^2+y^2<=max([(d/2)^2 15^2]));
         end
     end
-    % onClick metoda za graficke objekte sipke
-    methods (Static)
-        
-    end
-    
 end
 

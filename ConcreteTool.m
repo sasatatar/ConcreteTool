@@ -22,7 +22,7 @@ function varargout = ConcreteTool(varargin)
 
 % Edit the above text to modify the response to help ConcreteTool
 
-% Last Modified by GUIDE v2.5 19-Dec-2015 04:39:19
+% Last Modified by GUIDE v2.5 04-Feb-2016 20:45:25
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -329,6 +329,7 @@ elseif handles.tabGroup.SelectedTab == handles.rebar_uitab
     cs.Es = str2double(handles.Es_edit.String);
     cs.gamma_s = str2double(handles.gammas_edit.String);
     cs.delta = str2double(handles.xdRatio_edit.String);
+    cs.strainHardening = handles.strainHardening_checkbox.Value;
     % update concrete
     concreteClass = [12 16 20:5:60 70:10:90;... % fck [MPa]
         3.5*ones(1,9) 3.1 2.9 2.7 2.6 2.6]; % ecu2 [promili]
@@ -933,3 +934,21 @@ function delta_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in strainHardening_checkbox.
+function strainHardening_checkbox_Callback(hObject, eventdata, handles)
+% hObject    handle to strainHardening_checkbox (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of strainHardening_checkbox
+
+
+% --- Executes on button press in Mfi_button.
+function Mfi_button_Callback(hObject, eventdata, handles)
+% hObject    handle to Mfi_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+cs = handles.crossSection;
+cs.plotMfi();

@@ -43,6 +43,8 @@ classdef CrossSection < handle
         m = 2;                      % sjecnost        
         alpha = 90;                  % ugao uzengija sa horizontalom [deg]
         Vsd = 0;
+        ecu2 = -3.5/1000;       % strain in concrete / dilatacija u betonu
+        strainHardening = 0;    % set to 1 to use strain hardening
     end
     %% Dependent
     properties (Dependent)
@@ -51,7 +53,7 @@ classdef CrossSection < handle
         %  x21 y21 x22 y22...]
         Points;
         fcd; % design concrete strength fcd = alfacc * fck / gammac
-        ecu2;       % strain in concrete / dilatacija u betonu
+        
         centroid;         % center of gravity / teziste presjeka
     end
     %% Read-only properties - pristupa im se preko get metoda
@@ -71,6 +73,102 @@ classdef CrossSection < handle
     
     %% Metode za armaturu
     methods       
+        %% funkcija za plotanje dijagrama M-fi (moment-zakrivljenost)
+        function plotMfi(this)
+            ecu2 = this.ecu2;
+            ec = [0:-0.25:-3.5];
+            ec_yield_zone = [];
+            
+            % utvrdjivanje dilatacija u celiku pri stanju tecenja
+            r = Rebar(this);
+            eyd = r.fyd/this.Es;
+            
+            % formiranje praznih vektora za pohranjivanje vrijednosti M, fi
+            % i es
+            fi = zeros(1,length(ec));
+            Mrd = zeros(1,length(ec));
+            es = Mrd;
+            % yield flag
+            yielded = false; 
+            
+            % za svaku predefinisanu vrijednost ec, izracunaj moment
+            % savijanja i zakrivljenost presjeka
+            es1 = 0;
+            for i = 1:length(ec)
+                this.ecu2 = ec(i)/1000;
+                Mrd(i) = this.Mrd/10^6; %[kNm]
+
+                es1 = this.strain(this.xFs1);
+                es(i)=es1;
+                % predjena je granica tecenja
+                if es1 > eyd && yielded == false
+                    yielded = true;
+                    % za zonu tecenja progusti mrezu tacaka na svakih
+                    % 0.0625
+                    ec_yield_zone = [ec(i-1):-0.0625:ec(i)];
+                end
+                fi(i) = -this.ecu2/this.x;
+            end
+            % alociraj prazne vektore za pohranjivanje dodatnih vrijednosti
+            % M i fi za guscu mrezu tacaka na potezu gdje se desilo tecenje
+            % armature
+            Mrd_yield_zone = zeros(1, length(ec_yield_zone));
+            fi_yield_zone = Mrd_yield_zone;
+            % proracunaj M i fi za dodatnu mrezu tacaka
+            for i = 1:length(ec_yield_zone)
+                this.ecu2 = ec_yield_zone(i)/1000;
+                Mrd_yield_zone(i) = this.Mrd/10^6;
+                fi_yield_zone(i) = -this.ecu2/this.x;
+            end
+            % reset ecu2
+            this.ecu2 = ecu2;
+            % dilatacije koje treba oznaciti
+            % pronalazi koordinate prije nego sto se niz dopuni
+            points = -[2 3 3.5];
+            x = [];
+            y = [];
+            for i = 1:length(points)
+                point = points(i);
+                x = [x fi(ec==point)];
+                y = [y Mrd(ec==point)];
+            end
+            % spoji grube i detaljne vektore vrijednosti i poredaj po
+            % velicini
+            Mrd_refined = unique([Mrd Mrd_yield_zone]);
+            fi_refined = unique([fi fi_yield_zone]);
+            % get figure handle if it allready exists
+            fig = findobj(0, 'Tag', 'mifi');
+            % if not, create a new one
+            if isempty(fig)
+                fig = figure;
+                set(fig, 'Tag', 'mifi');
+                hold on;
+            end
+            % set that figure as active
+            figure(fig);
+            
+%             subplot(2,1,1);
+            line1 = plot(fi_refined,Mrd_refined);
+            ax1 = gca;
+            set(ax1, 'XGrid', 'on', 'YGrid', 'on');
+            set(line1, 'LineWidth', 1.5, 'Color', 'k');
+            
+            return;
+            % oznaci pojedine tacke
+            markers = plot(x,y);
+            set(markers, 'LineStyle', 'none',...
+                'MarkerEdgeColor', 'none',...
+                'Marker', 'o',...
+                'MarkerSize', 6,...
+                'MarkerFaceColor', 'k');
+%             
+%             subplot(2,1,2);
+%             p2 = plot(es,Mrd, '-sr');
+%             p2.MarkerFaceColor = 'red';
+%             this.fck = this.fck;
+        end
+        
+        
         %% x koordinata tezista poprecnog presjeka
         function x = get.centroid(this)
             x = integral(@this.Sy, 0, this.dims.h)/this.Ac;
@@ -149,7 +247,7 @@ classdef CrossSection < handle
             
             % ukoliko zadani polozaj vec nije zauzet, dodati sipku
             if isempty(findobj(ax, 'UserData', [row column zone]))
-                rebar = Rebar(ds, this, x, y, row, column, zone, this.Es, this.fyk, this.gamma_s);
+                rebar = Rebar(this, ds, x, y, row, column, zone);
                 this.Rebars(end+1) = rebar;
                 % pozvati funkciju za crtanje sipke - dok sredim
                 rect = rebar.draw(ax);
@@ -167,7 +265,8 @@ classdef CrossSection < handle
         
         function rearrangeRebars(this, dh, dy)
             %%% REARRANGEREBARS pravi novi raspored postojece armature u
-            %%% zategnutoj zoni usljed promjene visine poprecnog presjeka ili precnika uzengija. 
+            %%% zategnutoj zoni usljed promjene visine poprecnog presjeka,
+            %%% precnika uzengija, ili zastitnog sloja c_nom
             
             if isempty(this.Rebars)
                 return;
@@ -339,7 +438,9 @@ classdef CrossSection < handle
             % ukupna maskimalna kolicina armature (As1+As2)
             As_max = 0.04*this.Ac;
 
-            % provjera da li je potrebno dvostruko armiranje           
+            % provjera da li je potrebno dvostruko armiranje  
+            % pomocni Rebar objekat za ocitavanje napona po visini
+            r = Rebar(this);
             if Mrd < Msd
                 % krak sila
                 z = d-this.xFc;
@@ -352,11 +453,10 @@ classdef CrossSection < handle
                 d2 = min([0.1*dims.h this.c_nom+this.stirrup+this.ds_max(2)/2]);
                 zd = d - d2;
                 Fs2 = dM / zd; % [N]
-                As1_pot = (Fs1+Fs2) / this.fyd; % mm2
-                As2_pot = Fs2 / this.fyd; % mm2
+                As1_pot = (Fs1+Fs2) / r.sigmas(d); % mm2
+                As2_pot = Fs2 / abs(r.sigmas(d2)); % mm2
                 if As2_pot > As1_pot/2
-                    message = ['As2 > As1/2, potrebna je veca visina presjeka,'...
-                        'ili je dominantna normalna sila i presjek treba dimenzionisati kao stub.'];
+                    message = ['As2 > As1/2, potrebna je veca visina presjeka.'];
                     msgbox(message, 'Upozorenje', 'help');
                     return;
                 end
@@ -379,11 +479,13 @@ classdef CrossSection < handle
             end
             % nakon postignute zadovoljavajuce preciznosti, racunamo
             % potrebnu povrsinu armature na osnovu poznate sile u betonu (Fc)
-            As1_pot = (this.Fc-Nsd)/this.fyd; % [mm2]
+            As1_pot = (this.Fc-Nsd)/r.sigmas(d); % [mm2]
             if (As1_pot+As2_pot)>As_max
                 disp('As > As_max');
                 msgbox('As,uk > As,max. Potrebno je usvojiti veci presjek.',...
                     'Prearmiran presjek', 'help');
+            elseif As1_pot < As1_min
+                As1_pot = As1_min;
             end
             
             % pomocna funkcija koja racuna pribliznu vrijednost reaktivnog
@@ -405,7 +507,7 @@ classdef CrossSection < handle
             fcd = this.fcd; % racunska cvrstoca betona
             bw = this.dims.bw; % sirina rebra
             d = this.xFs1; % staticka visina           
-            z = this.z;
+            z = 0.9*d; %this.z;
             if z <= 0
                 msgbox('Nije definisan unutrasnji krak sila (z), presjek ne sadrzi poduznu armaturu u zoni zatezanja.',...
                     'Presjek nije armiran', 'help');
@@ -458,7 +560,7 @@ classdef CrossSection < handle
             % koristimo samo taj dio vektora, s_red, cotTheta_red, Vrd_red
             % broj jedinstenih elemenata u vektoru s
             elements = numel(unique(s));
-            % redukovani vektori sa jedinstenim vrijednostima
+            % redukovani vektori sa jedinstvenim vrijednostima
             al_red = al(end-elements+1:end);
             dFtd_red = dFtd(end-elements+1:end);
             s_red =  s(end-elements+1:end);
@@ -576,13 +678,34 @@ classdef CrossSection < handle
     
     
     %% SET i GET metode
-    methods       
+    methods      
+        function set.fck(this, fck)
+            this.fck = fck;
+            % maksimalna dopustena dilatacija u betonu
+            % usvaja se da je negativna
+            if this.fck <= 50
+                this.ecu2 = -3.5/1000;
+            else
+                % formula iz EC2
+                this.ecu2 = -(2.6+35*((90-this.fck)/100)^4)/1000;
+            end
+        end
+        
         function set.stirrup(this, stirrup)
             if ~isempty(this.stirrup)
                 ds = this.stirrup - stirrup;
                 this.rearrangeRebars(0, ds); 
             end
             this.stirrup = stirrup;
+        end
+        
+        %% c_nom setter function
+        function set.c_nom(this, c_nom)
+            if ~isempty(this.c_nom)
+                dc = this.c_nom - c_nom;
+                this.rearrangeRebars(0, dc);
+            end
+            this.c_nom = c_nom;
         end
         
         function set.dims(this, dims)
@@ -663,17 +786,6 @@ classdef CrossSection < handle
             fcd = this.alpha_cc*this.fck / this.gammac;
         end
         
-        function ecu2 = get.ecu2(this)
-            % maksimalna dopustena dilatacija u betonu
-            % usvaja se da je negativna
-            if this.fck <= 50
-                ecu2 = -3.5/1000;
-            else
-                % formula iz EC2
-                ecu2 = -(2.6+35*((90-this.fck)/100)^4)/1000;
-            end
-        end
-        
         function fctm = get.fctm(this)
             % cvrstoca na zatezanje
             if this.fck <= 50
@@ -699,7 +811,8 @@ classdef CrossSection < handle
         
         function xFs2 = get.xFs2(this)
             %%% XFS2 racuna polozaj sile Fs2 na x osi mjereno od
-            %%% vrha presjeka
+            %%% vrha presjeka, 
+            %%% if no compression reinforcement, returns 0
             rebars = findobj(this.Rebars, 'zone', 2);
             if isempty(rebars)
                 xFs2 = 0;
@@ -724,6 +837,9 @@ classdef CrossSection < handle
             else
                 xFs1 = sum([rebars.Fs].*[rebars.x])/sum([rebars.Fs]);
             end
+            if isnan(xFs1)
+                xFs1 = 0;
+            end
         end
         
         function z = get.z(this)
@@ -739,9 +855,12 @@ classdef CrossSection < handle
         end
         
         % get.Mrd funkcija racuna reaktivni moment savijanja presjeka, na
-        % osnovu usvojene armature
+        % osnovu usvojene armature u [Nmm]
         function Mrd = get.Mrd(this)
             if isempty(findobj(this.Rebars, 'zone', 1))
+                Mrd = 0;
+                return;
+            elseif this.ecu2 == 0
                 Mrd = 0;
                 return;
             end
@@ -922,9 +1041,10 @@ classdef CrossSection < handle
             
             % calculate x and y data for patch object
             zone = 1;
-            d = this.dims.h - this.c_nom - this.stirrup - this.ds_max(1)/2;
-            x = [0 d d 0];
-            y = [this.ecu2 this.strain(d) 0 0];
+            % x koordinata prvog reda sipki zategnute armature (zona 1)
+            row1 = this.dims.h - this.c_nom - this.stirrup - this.ds_max(1)/2;
+            x = [0 row1 row1 0];
+            y = [this.ecu2 this.strain(row1) 0 0];
             
             % odnos za uskladjivanje visine grafa dilatacija sa prikazom
             % poprecnog presjeka
@@ -940,8 +1060,13 @@ classdef CrossSection < handle
             % provjeriti da li ima sipki u zategnutoj zoni, 
             % ako ima, provjeriti odnos x/d i promijeniti boju plota
             color = [0.6 0.8 0];
-            if this.xFs1 ~= 0
-                if this.x/d > this.xdRatio % umjesto xFs1 da ide koordinata zadnjeg reda armature?
+            % privremeno: pravim pomocni Rebar objekat da ocitam eud
+            r = Rebar(this);
+            % kasnije: euk se cuva unutar crossSection objekta, i sipka ga
+            % cita odatle (trenutno je pohranjen unutar Rebar klase
+            if this.xFs1 ~= 0 
+                if this.x/row1 > this.xdRatio || ...
+                        (this.strainHardening == true && this.strain(row1) > r.eud)
                     color = [0.8 0 0];
                 end
             end
@@ -970,7 +1095,7 @@ classdef CrossSection < handle
                'Color', [0.3059 0.3961 0.5804]); 
            
            % oznacavanje x koordinata
-           ax.XTick = [0 this.x d];
+           ax.XTick = [0 this.x row1];
            ax.XTickLabel = sprintf('%.1f\n', ax.XTick);
         end
         
@@ -1144,7 +1269,7 @@ classdef CrossSection < handle
             % x - zadana koordinata u mm
             % this.x - x koordinata neutralne ose u mm
             ecu2=this.ecu2;
-            strain = ecu2-ecu2*x/this.x;
+            strain = ecu2-ecu2*x./this.x;
         end         
         %%
         function [sigma_c] = sigmac(this,x)
