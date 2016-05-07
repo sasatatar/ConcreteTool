@@ -74,20 +74,22 @@ else
 end
 
 handles.crossSection = section;
-% set tabs amd save their handles
+% set tabs and save their handles
 tabGroup = uitabgroup(hObject,'Position',[0 0 1 1], 'Tag', 'tabGroup');
 handles.tabGroup = tabGroup;
 handles.section_uitab = uitab(tabGroup,'Title','Presjek', 'Tag', 'section_uitab');
 handles.rebar_uitab = uitab(tabGroup,'Title','Podužna armatura', 'Tag', 'rebar_uitab');
 handles.stirrup_uitab = uitab(tabGroup, 'Title', 'Poprecna armatura', 'Tag', 'stirrup_uitab');
+handles.torsion_uitab = uitab(tabGroup, 'Title', 'Proracun torzije', 'Tag', 'torsion_uitab');
 
 handles.rebar_panel.Parent = handles.rebar_uitab;
 handles.rebar_panel.Position(1:2) = [15 15];
 handles.section_panel.Parent = handles.section_uitab;
 handles.section_panel.Position(1:2) = [15 15];
 
-%% ucitavanje programa za uzengije 
+%% ucitavanje programa za uzengije i torziju
 handles = loadStirrup(hObject, handles);
+handles = loadTorsionTool(hObject, handles);
 
 % Update handles structure
 guidata(hObject, handles);
@@ -103,6 +105,7 @@ function handles = loadStirrup(hObject, handles)
     %% funkcija vraca azuriran handles
     StirrupTool;
     % get stirrup_figure handle
+    % HandleVisibility mora da bude 'on', da bi findobj funkcija pronasla objekat !!!
     stirrup_figure = findobj('Type', 'figure', 'Tag', 'stirrup_figure');
     % get stirrup_panel handle
     Vsd_panel = findobj(stirrup_figure(1), 'Tag', 'Vsd_panel');
@@ -115,8 +118,34 @@ function handles = loadStirrup(hObject, handles)
     % brisanje prozora stirrup_figure / delete stirrup_figure
     delete(stirrup_figure);
     
-    % podesavanje tabele
+    % podesavanje tabele za prikaz podataka
     table = handles.stirrup_tab.Vrd_table;
+    %table.ColumnFormat = {'char', 'bank', 'bank', 'bank', 'bank'};
+    tableData = {'Potr.' [] [] [] [] []; 'Usvo.' [] [] [] [] []};    
+    table.Data = tableData;
+    table.ColumnWidth = {50 62 62 62 62 64};
+    
+%% funkcija za ucitavanje programa za torziju
+function handles = loadTorsionTool(hObject, handles)
+    %% ucitavanje programa za torziju
+    %% funkcija vraca azuriran handles
+    TorsionTool;
+    % get torsion_figure handle
+    % HandleVisibility mora da bude 'on', da bi findobj funkcija pronasla objekat !!!
+    torsion_figure = findobj('Type', 'figure', 'Tag', 'torsion_figure');
+    % get Ted_panel handle
+    Ted_panel = findobj(torsion_figure(1), 'Tag', 'Ted_panel');
+    % clear children in torsion_uitab (just in case)
+    delete(handles.torsion_uitab.Children);
+    % transfer torsion_panel to torsion_uitab
+    Ted_panel(1).Parent = handles.torsion_uitab;
+    % save handles from torsion_figure
+    handles.torsion_tab = guidata(torsion_figure(1));
+    % brisanje prozora torsion_figure / delete torsion_figure
+    delete(torsion_figure);
+    
+    % podesavanje tabele za prikaz podataka
+    table = handles.torsion_tab.Trd_table;
     %table.ColumnFormat = {'char', 'bank', 'bank', 'bank', 'bank'};
     tableData = {'Potr.' [] [] [] [] []; 'Usvo.' [] [] [] [] []};    
     table.Data = tableData;
@@ -306,13 +335,6 @@ if handles.tabGroup.SelectedTab == handles.section_uitab
     cs.dims.bw = str2double(handles.bw_edit.String);
     cs.dims.h = str2double(handles.h_edit.String);
     cs.stirrup = str2double(handles.stirrup_edit.String);
-    cs.x = cs.xdRatio*0.85*cs.dims.h;
-    % reset d/h ratio:
-    handles.dhRatio_edit.String = '0.9';
-    handles.d_edit.String = num2str(0.9*cs.dims.h, '%.1f');
-    
-    cs.As1_req = 0;
-    cs.As2_req = 0;
     % provjera ako je bw >= bf => u pitanju je pravougaoni presjek
     % pa pomazemo korisniku tako sto automatski prepravljamo bw i ostale dimenzije
     if (cs.dims.bw >= cs.dims.bf && hObject==handles.bf_edit)
@@ -323,6 +345,14 @@ if handles.tabGroup.SelectedTab == handles.section_uitab
         handles.hf_edit.String = '0';
         handles.hv_edit.String = '0';
     end
+    cs.x = cs.xdRatio*0.85*cs.dims.h;
+    % reset d/h ratio:
+    handles.dhRatio_edit.String = '0.9';
+    handles.d_edit.String = num2str(0.9*cs.dims.h, '%.1f');
+    
+    cs.As1_req = 0;
+    cs.As2_req = 0;
+    
 elseif handles.tabGroup.SelectedTab == handles.rebar_uitab
     % update rebar
     cs.fyk = str2double(handles.fyk_edit.String);
@@ -364,7 +394,16 @@ elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
         field = fields{i};
         eval(['cs.' field ' = str2double(handles.stirrup_tab.' field '_edit.String);']);
     end
+    % Vsd ne moze u for petlju jer se konvertuje u N
     cs.Vsd = str2double(handles.stirrup_tab.Vsd_edit.String)*1000;
+elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
+    fields = {'fywk', 'stirrup', 'm'};
+    for i = 1:numel(fields)
+        field = fields{i};
+        eval(['cs.' field ' = str2double(handles.torsion_tab.' field '_edit.String);']);
+    end
+    % Ted ne moze u for petlju jer se konvertuje u Nmm
+    cs.Ted = str2double(handles.torsion_tab.Ted_edit.String)*10^6; % Nmm
 end
 updateAxes(handles);
 
@@ -427,6 +466,14 @@ elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
         eval(['handles.stirrup_tab.' field '_edit.String = num2str(cs.' field ');']);
     end
     handles.stirrup_tab.Vsd_edit.String = num2str(cs.Vsd/1000);
+elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
+    % ucitavanje podataka za proracun torzije
+    fields = {'fywk', 'stirrup', 'm'};
+    for i = 1:numel(fields)
+        field = fields{i};
+        eval(['handles.torsion_tab.' field '_edit.String = num2str(cs.' field ');']);
+    end
+    handles.torsion_tab.Ted_edit.String = num2str(cs.Ted*10^-6);
 end
 updateAxes(handles);
 
@@ -750,14 +797,13 @@ function calculateAs_pushbutton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 cs = handles.crossSection;
 Msd = str2double(handles.Msd_edit.String)*10^6; % [Nmm]
-if Msd~=0 && ~isnan(Msd)
+if ~isnan(Msd) && Msd > 0
     cs.Msd = Msd;
     d = str2double(handles.d_edit.String);
     [As1 As2] = cs.calculateAs(d);
     cs.As1_req = As1;
     cs.As2_req = As2;
 else
-    cs.Msd = 0;
     As1 = 0;
     As2 = 0;
     cs.As1_req = As1;

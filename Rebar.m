@@ -106,7 +106,9 @@ classdef Rebar < dynamicprops
             if nargin < 2
                 x = this.x;
             end
-            es1 = s.strain(x); 
+            % ide apsolutna vrijednost zbog negativnih vrijednosti dilatacija u
+            % pritisnutoj zoni
+            es1 = abs(s.strain(x)); 
             Es = this.Es;
             fyd = this.fyd;
             % granica plasticnosti
@@ -145,7 +147,7 @@ classdef Rebar < dynamicprops
                 'Position', [rectX rectY d d],...
                 'Curvature', [1 1],...
                 'LineStyle', 'none',...
-                'FaceColor', [0 0.4000 0.6000],... %[0.2 0 1]
+                'FaceColor', [0 0.6 0.6],... %[0.2 0 1]
                 'UserData', [row column zone]);
         end
         

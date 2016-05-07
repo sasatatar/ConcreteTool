@@ -22,7 +22,7 @@ function varargout = StirrupTool(varargin)
 
 % Edit the above text to modify the response to help StirrupTool
 
-% Last Modified by GUIDE v2.5 20-Dec-2015 19:22:35
+% Last Modified by GUIDE v2.5 01-May-2016 17:50:03
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
