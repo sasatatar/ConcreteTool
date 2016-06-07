@@ -17,6 +17,7 @@ classdef CrossSection < handle
         gammac = 1.5;       % koeficijent sigurnosti za beton
         delta = 1;          % faktor redistribucije momenatas
         x;                  % polozaj neutralne ose od vrha presjeka [mm]
+        vt;                 % VTModeler objekat za proracun V i T uticaja
         
         % podaci vezano za armaturu
         c_nom = 35;             % zastitni sloj betona [mm]
@@ -24,8 +25,8 @@ classdef CrossSection < handle
         dg = 32;                % najvece zrno agregata  
         ds_max = [19 19];       % maksimalan precnik armature [mm] posebno za zategnutu (1) 
                                 % posebno za pritisnutu zonu (2)
-        As1_req = 0;            % potrebna povrsina armature [mm^2]
-        As2_req = 0;
+        As1_req = 0;            % potrebna povrsina armature u zoni 1 [mm^2]
+        As2_req = 0;            % potrebna povrsina armature u zoni 2 [mm^2]
         fyk = 500;              % karakteristicna cvsrtoca celika [MPa]
         Es = 200000;            % modul elasticnosti celika [MPa]
         gamma_s = 1.15;         % koef. sigurnosti za fyd = fyk / gamma_s
@@ -35,16 +36,17 @@ classdef CrossSection < handle
         % uticaji
         Nsd = 0;                % normalna sila koja djeluje u presjeku (pritisak je pozitivan)
         Msd = 0;                    % moment savijanja koji djeluje na presjek [Nmm]
-        Vsd = 0;                % transverzalna sila
+        Ved = 0;                % transverzalna sila
         Ted = 0;                % moment torzije [Nmm]
         
         % podaci vezano za uzengije - stirrup
         stirrup;           % uzengije [mm]
         fywk = 500;             % karakteristicna cvrstoca za uzengije
         fywd;                   % racunska granica tecenja u uzengijama fywd = fywk / gamma_s
-        sl = 0;                      % razmak izmedju uzengija [mm]
-        m = 2;                      % sjecnost        
-        alpha = 90;                  % ugao uzengija sa horizontalom [deg]
+        sl = 0;                 % poduzni razmak izmedju (konturnih) uzengija [mm]
+        s2 = 0;                 % poduzni razmak izmedju unutrasnjih uzengija, za m>2 [mm]
+        m = 2;                  % sjecnost uzengija    
+        alpha = 90;             % ugao uzengija sa horizontalom [deg]
         Asw_req = 0;            % ukupna potrebna kol. poprecne armature [mm^2/mm]
         
         ecu2 = -3.5/1000;       % strain in concrete / dilatacija u betonu
@@ -529,10 +531,10 @@ classdef CrossSection < handle
             sl = this.sl;
             out1 = zeros(1,5);
             out2 = out1;
-            Vsd = this.Vsd;
+            Ved = this.Ved;
             fcd = this.fcd; % racunska cvrstoca betona
             bw = this.dims.bw; % sirina rebra
-            d = this.xFs1; % staticka visina           
+            d = 0.9*this.dims.h; % staticka visina           
             z = 0.9*d; %this.z;
             if z <= 0
                 msgbox('Nije definisan unutrasnji krak sila (z), presjek ne sadrzi poduznu armaturu u zoni zatezanja.',...
@@ -554,8 +556,8 @@ classdef CrossSection < handle
             % broj tacaka koje ce se generisati
             % sto je veci, veca je preciznost
             num = 500;
-            if Vsd <= Vrd_max
-                Vrd = unique([linspace(0, Vrd_max, num) Vsd]);
+            if Ved <= Vrd_max
+                Vrd = unique([linspace(0, Vrd_max, num) Ved]);
             else
                 Vrd = unique(linspace(0, Vrd_max, num));
             end
@@ -578,7 +580,7 @@ classdef CrossSection < handle
             % al - translacija dijagrama, tj. produzenje zat. arm.
             al = z*(cotTheta-cotd(alpha))./2; % [mm]
             % dodatna sila zatezanja
-            dFtd = Vsd.*al/z;
+            dFtd = Ved.*al/z;
             
             % ukoliko je zadano s, odredjuje se Vrd interpolacijom
             % za interpolaciju je potreban monotono rastuci niz x
@@ -596,16 +598,16 @@ classdef CrossSection < handle
             Vrd_min = Vrd_red(1);
             
             % output 1 [s cotTheta Vrd dFtd al]
-            if Vsd <= 0 || isnan(Vsd)
+            if Ved <= 0 || isnan(Ved)
                 out1 = zeros(1, 5);
-            elseif Vsd <= Vrd_max
+            elseif Ved <= Vrd_max
                 % ako je zadana sila manja od minimalne, obaviti proracun
                 % za Vrd_min
-                logical_index = (Vrd==max(Vsd, Vrd_min));
+                logical_index = (Vrd==max(Ved, Vrd_min));
                 cotTheta_d = cotTheta(logical_index);
                 al_out = z*(cotTheta_d-cotd(alpha))/2;
-                dFtd_out = al_out/z*Vsd/1000;
-                out1 = [s(logical_index) cotTheta_d max(Vrd_min,Vsd)/1000 dFtd_out al_out];
+                dFtd_out = al_out/z*Ved/1000;
+                out1 = [s(logical_index) cotTheta_d max(Vrd_min,Ved)/1000 dFtd_out al_out];
             else
                 out1 = zeros(1,5);
                 message = ['Presjek nije u stanju da prenese zadanu transverzalnu silu. '...
@@ -620,7 +622,7 @@ classdef CrossSection < handle
                 elseif sl >= s_min && sl <= s_max
                     cotTheta_d = interp1(s_red, cotTheta_red, sl);
                     al_out = z*(cotTheta_d-cotd(alpha))/2;
-                    dFtd_out = al_out/z*Vsd/1000;
+                    dFtd_out = al_out/z*Ved/1000;
                     out2 = [sl  cotTheta_d interp1(s_red, Vrd_red, sl)/1000 dFtd_out al_out]; %[mm - kN mm]
                 else
                     out2 = zeros(1,5);
@@ -683,11 +685,11 @@ classdef CrossSection < handle
             % ispisivanje s na x osi umjesto Asw/s
             ax(2).XTickLabel = sprintf('%.1f\n', ax(2).XTick); %1./ax(2).XTick.*Asw
             
-            % oznacavanje tacke na dijagramu koja odgovara Vsd (crvena
+            % oznacavanje tacke na dijagramu koja odgovara Ved (crvena
             % tacka)
-            if Vsd ~= 0 
+            if Ved ~= 0 
                 % Vrd dijagram
-                line(Vrd_line.XData(Vrd==min(Vrd_max, Vsd))*[1 1], Vsd/1000*[1 1], 'Parent', ax(1),...
+                line(Vrd_line.XData(Vrd==min(Vrd_max, Ved))*[1 1], Ved/1000*[1 1], 'Parent', ax(1),...
                     'Marker', 'o', 'MarkerFaceColor', 'red',...
                     'MarkerEdgeColor', 'none');
                 % dFtd dijagram
@@ -710,141 +712,15 @@ classdef CrossSection < handle
         end
         
         % proracun torzione armature
-        function [out, s_min] = calculateTrd(this, ax)
-            out = zeros(1, 5);
-            % racunski moment torzije
-            Ted = this.Ted;
-            % racunska transverzalna sila
-            Ved = this.Vsd;
-            dsw = this.stirrup;
-            % cvrstoca poprecne armature na zatezanje
-            fywd = this.fywd;
-            % cvrstoca poduzne armature na zatezanje
-            fyd = this.fyd;
-            fcd = this.fcd;
-            d = this.xFs1; % staticka visina           
-            z = 0.9*d; %this.z;
-
-            % povrsina jednog kraka uzengija
-            Asw = dsw^2*pi/4; % evektivna povrsina jedne uzengije [mm2]
-            % dimenzije rebra
-            bw = this.dims.bw;
-            h = this.dims.h;
-            % povrsina rebra:
-            A = bw*h;
-            % obim rebra
-            u = 2*bw + 2*h;
-            % efektivna debljina zida min 2*c_nom+dsw, 
-            tef = max([A/u, 2*this.c_nom+dsw]);
-            % povrsina Ak
-            Ak = (bw-tef)*(h-tef);
-            % obim povrsine Ak
-            uk = 2*(bw-tef+h-tef);
-            % tok smicanja
-            q = Ted/2/Ak;
-            % generise 100 vrijednosti cotTheta izmedju 1 i 2.5
-            cotThetaArray = linspace(2.5, 1, 100);
-            % koef. redukcije cvrstoce na pritisak u betonu
-            v1 = 0.6*(1-this.fck/250);
-            Vrd_max_array = bw*z*v1*fcd*1./(cotThetaArray + 1./cotThetaArray);
-            Trd_max_array = v1*fcd*2*Ak*tef./(cotThetaArray + 1./cotThetaArray);
-            VTcombined = Ved./Vrd_max_array + Ted./Trd_max_array;
-            % plot function
-            % clear axes
-            cla(ax);
-            line(cotThetaArray, VTcombined, 'Parent', ax);
-            
-            % interpolira vrijednost cotTheta za koju je zbir interakcije 1
-            cotTheta = interp1(VTcombined, cotThetaArray, 1);
-            
-            % provjeriti da li je postojeci presjek dovoljan
-            if VTcombined(end) > 1
-                message = ['Potreban je jaci presjek. Ved/Vrd + Ted/Trd > 1'];
-                msgbox(message, 'Upozorenje', 'help');
-                return;
+        function vt = calculateTrd(this, ax)
+            % kreira novi VTModeler objekat i prosljedjuje mu reference za
+            % CrossSection objekat i axes objekat za plotanje dijagrama
+            vt = VTModeler(this,ax);
+            % pohranjivanje vt
+            if ~isempty(this.vt)
+                delete(this.vt);
             end
-            
-            % u slucaju da je presjek prejak pa se ni jednu vrijednost ne
-            % prekoraci vrijednost 1 interakcione funkcije, treba usvojiti
-            % cotTheta = 2.5 (minimalna vrijednost ugla)
-            if isnan(cotTheta)
-                cotTheta = 2.5;
-            end
-            % PRORACUN POPRECNE ARMATURE
-            dsw = this.stirrup; % usvojeni precnik uzengija
-            m = this.m; % zadana sjecnost poprecne armature za Ved
-            Asw = dsw^2*pi/4; %  povrsina jedne uzengije [mm2]
-            
-            function [Asw_Ved Asw_Ted] = calcAsw(cotTheta)
-                % Asw_sum = Asw_Ved + 2Asw_Ted
-                % potrebna kolicina poprecne armature za Ved po metru duznom
-                % grede
-                Asw_Ved = Ved/(fywd*z*cotTheta);
-                % potrebna kolicina poprecne armature za Ted po metru duznom
-                % grede 
-                Asw_Ted = Ted/(fywd*2*Ak*cotTheta);
-            end
-            [Asw_Ved Asw_Ted] = calcAsw(cotTheta); 
-
-            % Sabiranje poprecne armature
-            % potrebna kolicina konturnih uzengija
-            % Asw_Ted se mnozi sa 2 jer je formula izvedena za jednu stranicu, 
-            % tj. jedan krak uzengija
-            Asw_out = Asw_Ved/m*2 + 2*Asw_Ted;
-            % potrebna kolicina unutrasnjih uzengija
-            Asw_in = Asw_Ved/m*(m-2);
-            % ukupno
-            Asw_sum = Asw_in + Asw_out;
-            this.Asw_req = Asw_sum;
-            
-            % potreban razmak izmedju konturnih uzengija
-            s_out = 2*Asw/Asw_out;
-            % potreban razmak izmedju unutrasnjih uzengija
-            if Asw_in > 0
-                s_in = (m-2)*Asw/Asw_in;
-            else
-                s_in = 0;
-            end
-            
-            % minimalni i maksimalni dopusteni razmak uzengija
-            % alpha = 90, theta = 45 -> cotTheta = 1
-            [maxAsw_Ved maxAsw_Ted] = calcAsw(1);
-            maxAsw_out = maxAsw_Ved/m*2 + 2*maxAsw_Ted;
-            Rho_w_min = 0.08*sqrt(this.fck)/this.fywk;
-            s_max = min([0.75*d m*Asw/(Rho_w_min*bw)]); % u/8 bw
-            s_min = ceil(2*Asw/maxAsw_out/5)*5;
-            
-            if s_out > s_max
-                s_out = s_max;
-            end
-            
-            out = [s_out s_in Asw_out Asw_in Asw_sum];
-            
-            % dodatna poduzna armatura za torziju
-            %Asl = q*uk*cotTheta/fywd;
-            % potrebna poprecna armatura
-        end
-        
-        function out = recalculateAsw(this, s)
-            out = zeros(1,5);
-            Asw_sum = this.Asw_req;
-            m = this.m;
-            Asw = this.stirrup^2*pi/4;
-            Asw_out = 2*Asw/s;
-            n = 0;
-            if Asw_out >= Asw_sum
-                Asw_in = 0;
-                nmax = 0;
-            else 
-                Asw_in = Asw_sum - Asw_out;
-                % broj razmaka s izmedju dopunskih unutrasnjih uzengija
-                n = ((m-2)*Asw)/(Asw_in*s);
-                nmax = floor(n);
-                % korigovano Asw_in
-                Asw_in = (m-2)*Asw/(nmax*s);
-            end
-            
-            out = [s nmax*s Asw_out Asw_in (Asw_out+Asw_in)];
+            this.vt = vt;
         end
         
     end 

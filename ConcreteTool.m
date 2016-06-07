@@ -147,9 +147,11 @@ function handles = loadTorsionTool(hObject, handles)
     % podesavanje tabele za prikaz podataka
     table = handles.torsion_tab.Trd_table;
     %table.ColumnFormat = {'char', 'bank', 'bank', 'bank', 'bank'};
-    tableData = {'Potr.' [] [] [] [] []; 'Usvo.' [] [] [] [] []};    
+    tableData = {'Potr.' [] [] [] [] [] []; 'Usvo.' [] [] [] [] [] []};    
     table.Data = tableData;
-    table.ColumnWidth = {50 62 62 62 62 64};
+    table.ColumnWidth = {35 54 54 54 53 60 52};
+    
+
     
 
 function drawLabels(handles)
@@ -197,6 +199,16 @@ elseif hObject.SelectedTab == handles.rebar_uitab
 
 elseif hObject.SelectedTab == handles.stirrup_uitab
     cs.calculateAsw([handles.stirrup_tab.Vsd_axes handles.stirrup_tab.al_axes]);
+elseif hObject.SelectedTab == handles.torsion_uitab
+    % provjera sjecnosti i ukljucivanje/iskljucivanje dugmica za s2
+    cs = handles.crossSection;
+    if cs.m == 2
+        handles.torsion_tab.s2plus_button.Enable = 'off';
+        handles.torsion_tab.s2minus_button.Enable = 'off';
+    else
+        handles.torsion_tab.s2plus_button.Enable = 'on';
+        handles.torsion_tab.s2minus_button.Enable = 'on';
+    end
 end
 
 
@@ -395,7 +407,7 @@ elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
         eval(['cs.' field ' = str2double(handles.stirrup_tab.' field '_edit.String);']);
     end
     % Vsd ne moze u for petlju jer se konvertuje u N
-    cs.Vsd = str2double(handles.stirrup_tab.Vsd_edit.String)*1000;
+    cs.Ved = str2double(handles.stirrup_tab.Vsd_edit.String)*1000;
 elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
     fields = {'fywk', 'stirrup', 'm'};
     for i = 1:numel(fields)
@@ -404,6 +416,17 @@ elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
     end
     % Ted ne moze u for petlju jer se konvertuje u Nmm
     cs.Ted = str2double(handles.torsion_tab.Ted_edit.String)*10^6; % Nmm
+    cs.Ved = str2double(handles.torsion_tab.Ved_edit.String)*10^3; % N
+    
+    % provjera sjecnosti i ukljucivanje/iskljucivanje dugmica za s2
+    cs = handles.crossSection;
+    if cs.m == 2
+        handles.torsion_tab.s2plus_button.Enable = 'off';
+        handles.torsion_tab.s2minus_button.Enable = 'off';
+    else
+        handles.torsion_tab.s2plus_button.Enable = 'on';
+        handles.torsion_tab.s2minus_button.Enable = 'on';
+    end
 end
 updateAxes(handles);
 
@@ -465,7 +488,7 @@ elseif handles.tabGroup.SelectedTab == handles.stirrup_uitab
         field = fields{i};
         eval(['handles.stirrup_tab.' field '_edit.String = num2str(cs.' field ');']);
     end
-    handles.stirrup_tab.Vsd_edit.String = num2str(cs.Vsd/1000);
+    handles.stirrup_tab.Vsd_edit.String = num2str(cs.Ved/1000);
 elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
     % ucitavanje podataka za proracun torzije
     fields = {'fywk', 'stirrup', 'm'};
@@ -474,6 +497,7 @@ elseif handles.tabGroup.SelectedTab == handles.torsion_uitab
         eval(['handles.torsion_tab.' field '_edit.String = num2str(cs.' field ');']);
     end
     handles.torsion_tab.Ted_edit.String = num2str(cs.Ted*10^-6);
+    handles.torsion_tab.Ved_edit.String = num2str(cs.Ved*10^-3);
 end
 updateAxes(handles);
 

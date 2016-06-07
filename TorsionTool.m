@@ -22,7 +22,7 @@ function varargout = TorsionTool(varargin)
 
 % Edit the above text to modify the response to help TorsionTool
 
-% Last Modified by GUIDE v2.5 03-May-2016 17:55:03
+% Last Modified by GUIDE v2.5 04-Jun-2016 20:52:27
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -150,7 +150,28 @@ function sl_edit_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of sl_edit as text
 %        str2double(get(hObject,'String')) returns contents of sl_edit as a double
+cs = handles.crossSection;
+vt = cs.vt;
+sl = str2double(get(hObject,'String'));
+vt.s1 = sl;
+handles.torsion_tab.s2_edit.String = num2str(vt.s2);
+% update table
+updateTable(handles);
 
+function updateTable(handles)
+cs = handles.crossSection;
+vt = cs.vt;
+%update text fields
+handles.torsion_tab.s2_edit.String = num2str(vt.s2);
+handles.torsion_tab.sl_edit.String = num2str(vt.s1);
+% update table
+out = [vt.s1 vt.s2 vt.cotTheta vt.Asw_sum vt.Asl vt.al];
+% convert output to cell array and round to two decimal places
+out = arrayfun(@(x)(sprintf('%.2f',x)), out, 'unif', 0);
+table = handles.torsion_tab.Trd_table;
+table.Data(2,2:end) = out;
+% plot graf
+vt.plotAsw();
 
 % --- Executes during object creation, after setting all properties.
 function sl_edit_CreateFcn(hObject, eventdata, handles)
@@ -166,14 +187,14 @@ end
 
 
 
-% --- Executes on button press in plotTrd_button.
-function plotTrd_button_Callback(hObject, eventdata, handles)
-% hObject    handle to plotTrd_button (see GCBO)
+% --- Executes on button press in calcAsw_button.
+function calcAsw_button_Callback(hObject, eventdata, handles)
+% hObject    handle to calcAsw_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 cs = handles.crossSection;
 ax = handles.torsion_tab.Ted_axes;
-[out] = cs.calculateTrd(ax);
+vt = cs.calculateTrd(ax);
 % convert output to cell array and round to two decimal places
 out = arrayfun(@(x)(sprintf('%.2f',x)), out, 'unif', 0);
 table = handles.torsion_tab.Trd_table;
@@ -205,7 +226,10 @@ s = round(s/5)*5;
 slider.Value = s;
 handles.torsion_tab.sl_edit.String = num2str(s);
 out = cs.recalculateAsw(s);
+
 % convert output to cell array and round to two decimal places
+% anonimna funkcija koja prima red vektor i konvertuje ga u cell array
+% stringova vrijednosti zaokruzenih na drugu decimalu
 out_str = arrayfun(@(x)(sprintf('%.2f',x)), out, 'unif', 0);
 table = handles.torsion_tab.Trd_table;
 table.Data(2,2:6) = out_str(1:end);
@@ -229,23 +253,36 @@ function calculateS_button_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 cs = handles.crossSection;
 ax = handles.torsion_tab.Ted_axes;
-[out] = cs.calculateTrd(ax);
+% VTModeler objekat
+vt = cs.calculateTrd(ax);
+% out = [s1 s2 cotTheta Asw/s Asl al]
+cotTheta = vt.calcCotTheta();
+Asw_sum = vt.calcAsw(cotTheta);
+[Asl, al] = vt.calcAsl(cotTheta);
+[s1 s2] = vt.calcS(cotTheta);
+out = [s1 s2 cotTheta Asw_sum Asl al];
+% plotanje VT dijagrama
+vt.plotVT();
 % convert output to cell array and round to two decimal places
+% anonimna funkcija koja prima red vektor i konvertuje ga u cell array
+% stringova vrijednosti zaokruzenih na drugu decimalu
 out_str = arrayfun(@(x)(sprintf('%.2f',x)), out, 'unif', 0);
 table = handles.torsion_tab.Trd_table;
-table.Data(1,2:6) = out_str(1:end);
+table.Data(1,2:length(out_str)+1) = out_str(1:end);
 
-% podesavanje klizaca za usvajanje razmaka uzengija s
-slider = handles.torsion_tab.s_slider;
-if out(1) > 0
-    slider.Max = out(1)-mod(out(1), 5);
-    slider.SliderStep = [5/slider.Max 10/slider.Max];
-    slider.Value = slider.Max;
-else 
-    slider.Max = 1;
-end
-
-handles.torsion_tab.sl_edit.String = num2str(slider.Max);
+vt.s1 = floor(s1/5)*5;
+updateTable(handles);
+% % podesavanje klizaca za usvajanje razmaka uzengija s
+% slider = handles.torsion_tab.s_slider;
+% if out(1) > 0
+%     slider.Max = out(1)-mod(out(1), 5);
+%     slider.SliderStep = [5/slider.Max 10/slider.Max];
+%     slider.Value = slider.Max;
+% else 
+%     slider.Max = 1;
+% end
+% 
+% handles.torsion_tab.sl_edit.String = num2str(slider.Max);
 
 
 
@@ -261,6 +298,88 @@ function m_edit_Callback(hObject, eventdata, handles)
 % --- Executes during object creation, after setting all properties.
 function m_edit_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to m_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function s2_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to s2_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of s2_edit as text
+%        str2double(get(hObject,'String')) returns contents of s2_edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function s2_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to s2_edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on slider movement.
+function s2_slider_Callback(hObject, eventdata, handles)
+% hObject    handle to s2_slider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'Value') returns position of slider
+%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
+
+
+% --- Executes during object creation, after setting all properties.
+function s2_slider_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to s2_slider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+% --- Executes on button press in s2minus_button.
+function s2minus_button_Callback(hObject, eventdata, handles)
+% hObject    handle to s2minus_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+cs = handles.crossSection;
+vt = cs.vt;
+if vt.s2 == vt.s1
+    return;
+end
+vt.s2 = vt.s2-vt.s1;
+updateTable(handles);
+
+% --- Executes on button press in s2plus_button.
+function s2plus_button_Callback(hObject, eventdata, handles)
+% hObject    handle to s2plus_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+cs = handles.crossSection;
+vt = cs.vt;
+vt.s2 = vt.s2+vt.s1;
+updateTable(handles);
+
+
+% --- Executes during object creation, after setting all properties.
+function Ved_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Ved_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
