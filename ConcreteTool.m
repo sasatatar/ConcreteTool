@@ -78,9 +78,9 @@ handles.crossSection = section;
 tabGroup = uitabgroup(hObject,'Position',[0 0 1 1], 'Tag', 'tabGroup');
 handles.tabGroup = tabGroup;
 handles.section_uitab = uitab(tabGroup,'Title','Presjek', 'Tag', 'section_uitab');
-handles.rebar_uitab = uitab(tabGroup,'Title','Poduna armatura', 'Tag', 'rebar_uitab');
-handles.stirrup_uitab = uitab(tabGroup, 'Title', 'Poprecna armatura', 'Tag', 'stirrup_uitab');
-handles.torsion_uitab = uitab(tabGroup, 'Title', 'Proracun torzije', 'Tag', 'torsion_uitab');
+handles.rebar_uitab = uitab(tabGroup,'Title','Moment savijanja', 'Tag', 'rebar_uitab');
+handles.stirrup_uitab = uitab(tabGroup, 'Title', 'Transverzalna sila', 'Tag', 'stirrup_uitab');
+handles.torsion_uitab = uitab(tabGroup, 'Title', 'Moment torzije', 'Tag', 'torsion_uitab');
 
 handles.rebar_panel.Parent = handles.rebar_uitab;
 handles.rebar_panel.Position(1:2) = [15 15];
@@ -474,7 +474,7 @@ elseif handles.tabGroup.SelectedTab == handles.section_uitab
     % maks. zrno agregata
     handles.dg_edit.String = num2str(cs.dg);
     % stirrups / uzengije
-    handles.stirrup_edit.String = num2str(cs.stirrup);
+    handles.stirrup_edit(1).String = num2str(cs.stirrup);
     % dimenzije
     handles.bf_edit.String = num2str(cs.dims.bf);
     handles.hf_edit.String = num2str(cs.dims.hf);

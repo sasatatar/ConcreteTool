@@ -1232,10 +1232,8 @@ classdef CrossSection < handle
             % privremeno: pravim pomocni Rebar objekat da ocitam eud
             r = Rebar(this);
             % kasnije: euk se cuva unutar crossSection objekta, i sipka ga
-            % cita odatle (trenutno je pohranjen unutar Rebar klase)
+            % cita odatle (trenutno je pohranjen unutar Rebar klase
             if this.xFs1 ~= 0 
-                % ako je x/d > 0.45 ili ako pritisnuta armatura nije usla u
-                % fazu tecenja
                 if this.x/this.xFs1 > this.xdRatio || ...
                         (this.strainHardening == true && this.strain(row1) > r.eud)
                     color = [0.8 0 0]; % crvena boja

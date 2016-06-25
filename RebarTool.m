@@ -55,7 +55,8 @@ function RebarTool_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for RebarTool
 handles.output = hObject;
 hObject.CloseRequestFcn = @close;
-handles.ds = [12 14 16 19 22 25 28 32 36];
+% precnici sipki
+handles.ds = [12 14 16 18 19 20 22 25 26 28 30 32 36];
 % Update handles structure
 guidata(hObject, handles);
 % provjera da li je proslijedjen CrossSection objekat zajedno sa ostalim 
@@ -75,40 +76,47 @@ if nargin>=4
     % popunjavanje tabele rebar_uitable
     % table handle
     cs = handles.crossSection;
-    table = handles.rebar_uitable;
-    table.Position = [297 422 383 186];
     % podrzane dimenzije sipki armature
-    ds = handles.ds; % [12 14 16 19 22 25 28 32 36]
+    ds = handles.ds; % [12 14 16 19 20 22 25 28 32 36]
+    
+    table = handles.rebar_uitable;
+    table.Position = [380 402 300 204]; % h=18.6*(length(ds)+1)
+    
     % podesavanje da su nazivi po redovima precnici armature
     set(table, 'RowName', ds);
-    tableData = zeros(length(ds), 5); 
+    tableData = zeros(length(ds), 4); 
     % definise N/red i As kolone
     zone = 1; % prvo otvaramo zategnutu zonu
     tableData(:,1) = [cs.RPR(ds, zone)]'; % N/red 
     tableData(:,2) = [ds.^2*pi/4]'; % As
-    tableData(:,3) = tableData(:,1).*tableData(:,2); % As/red
-    % Potrebno
-    As1_req = cs.As1_req; % str2double(handles.As1_edit.String)
+    
+    % Potrebna kolicina zategnute armature za Med i Ted
+    vt = cs.vt;
+    As1_req = cs.As1_req+vt.Asl/vt.uk*vt.bk; % str2double(handles.As1_edit.String)
     % potreban broj sipki
-    tableData(:,4) = ceil(As1_req./tableData(:,2));
+    tableData(:,3) = ceil(As1_req./tableData(:,2));
     % As_uk
-    tableData(:,5) = tableData(:,2).*tableData(:,4);
+    tableData(:,4) = tableData(:,2).*tableData(:,3);
     table.Data = tableData;
     % formatiranje kolona (numeric za cijele brojeve, bank za 2 decimale)
-    set(table, 'ColumnFormat',{'numeric', 'bank', 'bank', 'numeric', 'bank'});
+    set(table, 'ColumnFormat',{'numeric', 'bank', 'numeric', 'bank'});
     
     % unos podataka u As1_uitable
+    % potrebna kolicina poduzne armature u pritisnutoj zoni:
+    As2_req = max([cs.As2_req vt.Asl/vt.uk*vt.bk]);
+    % potrebna kolicina konturne armature za Ted
+    As3_req = vt.Asl/vt.uk*vt.hk*2;
     table = handles.As1_uitable;
-    tableData = zeros(3, 2);
-    tableData(1, :) = [cs.As1_req cs.As2_req];
-    tableData(2, :) = [cs.As1 cs.As2];
+    tableData = zeros(3, 3);
+    tableData(1, :) = [As1_req As2_req As3_req];
+    tableData(2, :) = [cs.As1 cs.As2 cs.As3];
     tableData(3, :) = tableData(1, :) - tableData(2, :);
     table.Data = tableData;
     table.RowName = {'Potrebno', 'Ugradjeno', 'Nedostaje'};
-    table.ColumnName = {'As1 [mm2]', 'As2 [mm2]'};
-    table.ColumnFormat = {'bank', 'bank'};
+    table.ColumnName = {'Zat.', 'Prit.', 'Kont.'};
+    table.ColumnFormat = {'bank', 'bank', 'bank'};
     % fino podesavanje dimenzija tabele za As
-    table.Position(3:4) = [253 76];
+    table.Position(3:4) = [285 76]; %253 76
     %handles.As1_req_edit.String = num2str(cs.As1_req,'%.2f');
     
     % setup dsmax_popup 
@@ -151,12 +159,17 @@ function setDsPopup(handles)
 % setup ds_popup
 cs = handles.crossSection;
 zone = handles.zone_popup.Value;
-index = find(handles.ds==cs.ds_max(zone), 1);
-handles.dsmax_popup.Value = index;
-ds = handles.dsmax_popup.String;
-handles.ds_popup.String = handles.ds(1:index);
-handles.ds_popup.Value = index;
-
+if zone == 3
+    handles.dsmax_popup.Enable = 'off';
+    handles.ds_popup.String = handles.ds(1:end);
+else
+    handles.dsmax_popup.Enable = 'on';
+    index = find(handles.ds==cs.ds_max(zone), 1);
+    handles.dsmax_popup.Value = index;
+    ds = handles.dsmax_popup.String;
+    handles.ds_popup.String = handles.ds(1:index);
+    handles.ds_popup.Value = index;
+end
 
 % --- Outputs from this function are returned to the command line.
 function varargout = RebarTool_OutputFcn(hObject, eventdata, handles) 
@@ -293,6 +306,8 @@ As_uitable.Data(4) = cs.As2;
 % azurira As1_uitable u ovom prozoru
 As1_uitable.Data(2:3,1) = [cs.As1 As1_uitable.Data(1)-cs.As1]';
 As1_uitable.Data(2:3,2) = [cs.As2 As1_uitable.Data(4)-cs.As2]';
+% treca kolona - konturna armatura
+As1_uitable.Data(2:3,3) = [cs.As3 As1_uitable.Data(7)-cs.As3]';
 % azuriranje crteza armature u ConcreteTool prozoru
 % ponovo crta sipke armature u PRVOM ConcreteTool prozoru
 cs.drawRebar(handles.section1_axes);
@@ -315,17 +330,19 @@ table = handles.rebar_uitable;
 tableData = table.Data;
 % Nedostaje As
 if zone == 1
-    As1_req = As1_uitable.Data(3);
+    As1_req = As1_uitable.Data(3,1);
+elseif zone == 2
+    As1_req = As1_uitable.Data(3,2);
 else
-    As1_req = As1_uitable.Data(6);
+    As1_req = As1_uitable.Data(3,3);
 end
 if As1_req < 0
     As1_req = 0;
 end
 % potreban broj sipki
-tableData(:,4) = ceil(As1_req./tableData(:,2));
+tableData(:,3) = ceil(As1_req./tableData(:,2));
 % As_uk
-tableData(:,5) = tableData(:,2).*tableData(:,4);
+tableData(:,4) = tableData(:,2).*tableData(:,3);
 table.Data = tableData;
 
 function RebarOnClick(rect, ~, handles)
@@ -387,6 +404,9 @@ if zone == 1
     ax.YLim = [(cs.dims.bf-cs.dims.bw)/2 (cs.dims.bf-cs.dims.bw)/2+cs.dims.bw];
 elseif zone == 2
     ax.XLim = [0 0.5*cs.dims.h];
+    ax.YLim = [0 cs.dims.bf];
+else
+    ax.XLim = [0 cs.dims.h];
     ax.YLim = [0 cs.dims.bf];
 end
 

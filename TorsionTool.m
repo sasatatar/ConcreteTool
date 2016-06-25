@@ -22,7 +22,7 @@ function varargout = TorsionTool(varargin)
 
 % Edit the above text to modify the response to help TorsionTool
 
-% Last Modified by GUIDE v2.5 04-Jun-2016 20:52:27
+% Last Modified by GUIDE v2.5 10-Jun-2016 03:41:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -166,6 +166,8 @@ handles.torsion_tab.s2_edit.String = num2str(vt.s2);
 handles.torsion_tab.sl_edit.String = num2str(vt.s1);
 % update table
 out = [vt.s1 vt.s2 vt.cotTheta vt.Asw_sum vt.Asl vt.al];
+% diplay VTcombined
+fprintf('Vrd = %.2f \nTrd = %.2f \nV+T = %.2f\n\n', vt.Vrd/1000, vt.Trd*10^-6, vt.VTcombined);
 % convert output to cell array and round to two decimal places
 out = arrayfun(@(x)(sprintf('%.2f',x)), out, 'unif', 0);
 table = handles.torsion_tab.Trd_table;
@@ -388,3 +390,11 @@ function Ved_edit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in addTRebar_button.
+function addTRebar_button_Callback(hObject, eventdata, handles)
+% hObject    handle to addTRebar_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+RebarTool(handles);

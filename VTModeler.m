@@ -14,6 +14,8 @@ classdef VTModeler < handle
         A;          % povrsina rebra
         u;          % obim rebra
         tef;        % debljina efektivnog tankozidnog nosaca
+        bk;         % sirina konture
+        hk;         % visina konture
         Ak;         % povrsina Ak
         uk;         % obim povrsine Ak
         q;          % tok smicanja
@@ -92,6 +94,13 @@ classdef VTModeler < handle
             else
                 this.s2 = 0;
             end
+            % ako je s1 == 0, podesi Asw_sum = 0 i prekini izvrsavanje
+            % f-ije
+            if s1 == 0
+                this.s2 = 0;
+                this.Asw_sum = 0;
+                return;
+            end
             cs = this.cs;   % CrossSeciton - objekat poprecnog presjeka
             s2 = this.s2;   % razmak unutrasnjih uzengija
             Asw = this.Asw; % povrsina jednog kraka uzengije
@@ -102,7 +111,7 @@ classdef VTModeler < handle
                 this.Asw_sum = 2*Asw/s1;
             end
             
-            if this.Asw_sum > this.Asw_max
+            if cs.Ted > 0 && this.Asw_sum > this.Asw_max
                 message = ['Presjek je prearmiran, Asw/s(max) = ' num2str(round(this.Asw_max, 2)) '. '...
                     'Potrebno je smanjiti sjecnost ili usvojiti veci razmak uzengija.'];
                 msgbox(message, 'Upozorenje', 'help');
@@ -129,13 +138,15 @@ classdef VTModeler < handle
             end
             % provjera da li unutrasnje uzengije sijeku prit. dijagonale
             cotTheta = this.cotTheta;
-            if s2>this.z*cotTheta
+            
+            if cotTheta > 0 && s2 > this.z*cotTheta
                 message = ['Razmak s2 je veci od horizontalnog raspona '...
                     'pritisnutih dijagonala (z*ctg(theta) = ' num2str(round(this.z*cotTheta, 2)) ' mm). '...
                     'Potrebno je smanjiti sjecnost ili usvojiti manji razmak uzengija.'];
                 msgbox(message, 'Upozorenje', 'help');
             end
         end
+        
         % racuna vrijednost cotTheta za koju je zbir interakcije VTcombined=1
         function cotTheta = calcCotTheta(this)
             cs = this.cs;
@@ -161,6 +172,10 @@ classdef VTModeler < handle
         end
         
         function cotTheta = get.cotTheta(this)
+            if this.Asw_sum == 0
+                cotTheta = 0;
+                return;
+            end
             cs = this.cs;
             cotTheta = (cs.Ved/cs.fywd/this.z + cs.Ted/cs.fywd/this.Ak)/this.Asw_sum;
         end
@@ -188,7 +203,9 @@ classdef VTModeler < handle
             % maksimalan dopusten razmak torzionih uzengija
             st = 2*Asw/Asw_Ted;
             this.s_max = min([0.75*this.d this.u/8 bw st]); % u/8 bw
-            
+            sprintf(['s_max = %.2f\n'...
+                'tef = %.2f\n'...
+                'Asw_min = %.3f'], this.s_max, this.tef, this.Asw_min)
             
             % potreban razmak uzengija za maks. sjecnost
             
@@ -322,7 +339,7 @@ classdef VTModeler < handle
         function this = VTModeler(cs, ax)
             this.cs = cs; % cs - CrossSection object
             this.ax = ax; % ax - axes object za plotanje dijagrama Asw - VTcombined
-            this.d = 0.9*cs.dims.h; % staticka visina           
+            this.d = cs.xFs1; % staticka visina           
             this.z = 0.9*this.d; %this.z;
             % dimenzije rebra
             bw = cs.dims.bw;
@@ -335,9 +352,11 @@ classdef VTModeler < handle
             % efektivna debljina zida min 2*c_nom+dsw, 
             this.tef = max([this.A/this.u, 2*cs.c_nom+cs.stirrup]);
             % povrsina Ak
-            this.Ak = (bw-this.tef)*(h-this.tef);
+            this.bk = bw-this.tef;
+            this.hk = h-this.tef;
+            this.Ak = this.bk*this.hk;
             % obim povrsine Ak
-            this.uk = 2*(bw-this.tef+h-this.tef);
+            this.uk = 2*(this.bk+this.hk);
             % tok smicanja
             this.q = cs.Ted/2/this.Ak;
             % koef. redukcije cvrstoce na pritisak u betonu

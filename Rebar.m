@@ -32,19 +32,22 @@ classdef Rebar < dynamicprops
         %% constructor
         function obj = Rebar(cs,d,x,y,row,column,zone)
             if nargin == 7
-                correction = (cs.ds_max(zone)-d)/2;
-                if cs.ds_max(zone) ~= d && column == 1
-                    y = y - correction;
-                elseif cs.ds_max(zone) ~= d && column == cs.RPR(cs.ds_max(zone), zone)
-                    y = y + correction;
-                end
-                if row == 1 && d ~= cs.ds_max(zone)
-                    if zone == 1
-                        x = x + correction;
-                    else
-                        x = x - correction;
+                if zone ~= 3
+                    correction = (cs.ds_max(zone)-d)/2;
+                    if cs.ds_max(zone) ~= d && column == 1
+                        y = y - correction;
+                    elseif cs.ds_max(zone) ~= d && column == cs.RPR(cs.ds_max(zone), zone)
+                        y = y + correction;
+                    end
+                    if row == 1 && d ~= cs.ds_max(zone)
+                        if zone == 1
+                            x = x + correction;
+                        else
+                            x = x - correction;
+                        end
                     end
                 end
+                
                 
                 obj.d = d;
                 obj.section = cs;
