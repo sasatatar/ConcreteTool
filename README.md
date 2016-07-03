@@ -7,4 +7,4 @@ If you don't have Mapping Toolbox installed, you can use this:
 https://gist.github.com/ashaindlin/75e71b2825bb112fdbf9
 
 To start the program GUI, save all files in one folder (keeping the subfolder section_templates) and set it as current directory in MATLAB. 
-You can then start the program by typing the following command inside Command window in Matlab: ConcreteTool
+You can then start the program by typing the command 'ConcreteTool' inside Command window in Matlab.
