@@ -584,12 +584,10 @@ classdef CrossSection < handle
             fcd = this.fcd; % racunska cvrstoca betona
             bw = this.dims.bw; % sirina rebra
             d = this.xFs1; % staticka visina           
-            z = 0.9*d; %this.z;
-            if z <= 0
-                msgbox('Nije definisan unutrasnji krak sila (z), presjek ne sadrzi poduznu armaturu u zoni zatezanja.',...
-                    'Presjek nije armiran', 'help');
-                return;
+            if d == 0
+                d = 0.9*this.dims.h;
             end
+            z = 0.9*d; %this.z;
             dsw = this.stirrup; % usvojeni precnik uzengija
             m = this.m; % zadana sjecnost
             Asw = m*dsw^2*pi/4; % efektivna povrsina jedne uzengije [mm2]
@@ -671,6 +669,7 @@ classdef CrossSection < handle
                 elseif sl >= s_min && sl <= s_max
                     cotTheta_d = interp1(s_red, cotTheta_red, sl);
                     al_out = z*(cotTheta_d-cotd(alpha))/2;
+                   
                     dFtd_out = al_out/z*Ved/1000;
                     out2 = [sl  cotTheta_d interp1(s_red, Vrd_red, sl)/1000 dFtd_out al_out]; %[mm - kN mm]
                 else

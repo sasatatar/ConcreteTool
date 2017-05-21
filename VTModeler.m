@@ -319,6 +319,57 @@ classdef VTModeler < handle
             end
         end
         
+        function plotVT2(this)
+            fg = findobj('Tag', 'plotVT2_figure');
+            if isempty(fg)
+                fg=figure;
+                fg.Tag = 'plotVT2_figure';
+                fg.Name = 'Dijagram interakcije';
+                ax = axes;
+                ax.Tag = 'plotVT2_axes';
+            else
+                ax = findobj('Tag', 'plotVT2_axes');
+            end
+            cla(ax);
+            ax(1).XLabel.String = 'V_{Rd} [kN]';
+            ax(1).YLabel.String = 'T_{Rd} [kNm]';
+            cotTheta = [2.5 1]
+            if this.cotTheta > 0
+                cotTheta = [cotTheta this.cotTheta];
+            end
+            % plota dijagrame interakcije za razlicite vrijednosti cotTheta
+            for i = 1:length(cotTheta)
+                x = [this.calcVrd(cotTheta(i))/1000 0];
+                y = [0 this.calcTrd(cotTheta(i))/10^6];
+                lineStyle = '--';
+                if i == 3
+                    lineStyle = '-';
+                end
+                line('XData', x, 'YData', y, ...
+                    'Color', 'k', 'Parent', ax,...
+                    'LineStyle', lineStyle);
+            end
+            % obiljezava (Ved, Ted) tacku na dijagramu interakcije
+            line('XData', this.cs.Ved/1000*[1 1], 'YData', this.cs.Ted/10^6*[1 1], ...
+                    'Color', 'k', 'Parent', ax,...
+                    'Marker', 'o', 'MarkerFaceColor', 'k',...
+                    'MarkerEdgeColor', 'none');
+            grid on;
+        end
+        function plotVTheta(this)
+            % 100 vrijednosti u rasponu izmedju 1 i granicnog ctgTheta
+            ctgTheta = linspace(1, this.cotTheta, 400);
+            theta = acotd(ctgTheta);
+            cs = this.cs;
+            Vrds1 = this.m*this.Asw*cs.fywd*floor(this.z.*ctgTheta/this.s1)./1000; %kN
+            Vrds2 = this.m*this.Asw*cs.fywd*(this.z.*ctgTheta/this.s1)./1000; %kN
+            figure
+            plot(Vrds1, theta);
+            hold on
+            plot(Vrds2, theta);
+            
+        end
+        
         function plotAsw(this)
             ax = this.ax;
             % potrebno cotTheta s obzirom na opterecenje
@@ -339,7 +390,11 @@ classdef VTModeler < handle
         function this = VTModeler(cs, ax)
             this.cs = cs; % cs - CrossSection object
             this.ax = ax; % ax - axes object za plotanje dijagrama Asw - VTcombined
-            this.d = cs.xFs1; % staticka visina           
+            this.d = cs.xFs1; % staticka visina  
+            % ako staticka visina nije definisana, usvojiti d = 0.9h
+            if this.d == 0
+                this.d = 0.9*cs.dims.h;
+            end
             this.z = 0.9*this.d; %this.z;
             % dimenzije rebra
             bw = cs.dims.bw;

@@ -22,7 +22,7 @@ function varargout = TorsionTool(varargin)
 
 % Edit the above text to modify the response to help TorsionTool
 
-% Last Modified by GUIDE v2.5 10-Jun-2016 03:41:04
+% Last Modified by GUIDE v2.5 01-Jul-2016 21:18:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -398,3 +398,13 @@ function addTRebar_button_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 RebarTool(handles);
+
+
+% --- Executes on button press in plotVT2_button.
+function plotVT2_button_Callback(hObject, eventdata, handles)
+% hObject    handle to plotVT2_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+cs = handles.crossSection;
+vt = cs.vt;
+vt.plotVT2();
