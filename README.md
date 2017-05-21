@@ -16,14 +16,31 @@ You can then start the program by typing the command `ConcreteTool` inside Comma
 
 ### Program sceenshots
 
-![image](https://cloud.githubusercontent.com/assets/5138412/26280362/bf23b34a-3dd0-11e7-9653-822ec4d4bec7.png)
+#### Define cross-section
+
 ![image](https://cloud.githubusercontent.com/assets/5138412/26280373/1dc166ea-3dd1-11e7-868f-ae9a26392d3d.png)
 
-![image](https://cloud.githubusercontent.com/assets/5138412/26280375/34f2018a-3dd1-11e7-84c3-a166541cb3c0.png)
+#### Set material properties and loads
+
+![image](https://cloud.githubusercontent.com/assets/5138412/26280362/bf23b34a-3dd0-11e7-9653-822ec4d4bec7.png)
+
+#### Over reinforced cross-seciton
+
 ![image](https://cloud.githubusercontent.com/assets/5138412/26280377/427e1488-3dd1-11e7-8b35-7ef403921dc6.png)
 
+#### Add/remove rebars
+
+![image](https://cloud.githubusercontent.com/assets/5138412/26280375/34f2018a-3dd1-11e7-84c3-a166541cb3c0.png)
+
+#### M-phi (curvature) diagram
+
 ![image](https://cloud.githubusercontent.com/assets/5138412/26280379/4986336e-3dd1-11e7-90c0-71bd464e597a.png)
+
+#### Vrd section design
+
 ![image](https://cloud.githubusercontent.com/assets/5138412/26280384/53ec3a7e-3dd1-11e7-9dfe-af25233424df.png)
+
+#### Vrd + Trd section design
 
 ![image](https://cloud.githubusercontent.com/assets/5138412/26280389/8141bfbc-3dd1-11e7-8c68-72382c8ea6dc.png)
 
