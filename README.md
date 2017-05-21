@@ -1,10 +1,6 @@
 # ConcreteTool
 
-
-
-
-
-## MATLAB program for reinforced concrete section design
+### MATLAB program for reinforced concrete section design
 
 This program was created as a result of a [diploma thesis](https://drive.google.com/open?id=0Byvv9xAhq3xaLVJ2Wi1LNVpxSTA) (in Serbian).
 
